@@ -1,172 +1,271 @@
 [![Python 3.14+](https://img.shields.io/badge/Python-3.14+-black.svg)](https://www.python.org/)
 [![PyTest](https://img.shields.io/badge/PyTest-blue?logo=pytest)](https://pytest.org/)
 [![Playwright](https://img.shields.io/badge/Playwright-lightblue?logo=playwright)](https://playwright.dev/)
-[![Requests](https://img.shields.io/badge/Requests-grey?logo=python)](https://requests.readthedocs.io/)
-[![Faker](https://img.shields.io/badge/Faker-violet?logo=python)](https://faker.readthedocs.io/)
 [![Allure TestOps](https://img.shields.io/badge/Allure-blueviolet?logo=allure)](https://docs.qameta.io/allure-testops/)
 
-## API & E2E Test Automation for LumaireJ 🖤✨
+# LumaireJ Test Automation Framework
 
-#### The test framework for [LumaireJ](https://github.com/darliaro/LumaireJ).
-
-It includes **integration-level API tests** using **Pytest**, **Requests**, and **Allure reporting**,
-and **Playwright-based E2E tests** for frontend validation with **Faker** for test data generation.
-
-The framework is designed to run independently via **GitHub Actions dispatch workflow** from the main application repository.
+Dedicated test automation repository for [LumaireJ](https://github.com/darliaro/LumaireJ) - a journaling and mood tracking application.
 
 ---
 
-### Initial Setup (Local Dev)
+## Testing Strategy
 
-- [ ] Install [Python 3.13+](https://www.python.org/downloads/)
-- [ ] Install [PDM](https://pdm-project.org/latest/#recommended-installation-method)
-- [ ] Install Dependencies:
-   ```bash
-   pdm install -G dev
-- [ ] Install Playwright browsers:
-   ```bash
-   pdm run playwright install
-- [ ] Install pre-commit hooks:
-  ```bash
-  pdm run pre-commit install
-- [ ] Set up a local environment:
-   ```bash
-  cp .env.template .env
-- [ ] Install [Allure CLI](https://docs.qameta.io/allure/#_installing_a_commandline)
+### Test Pyramid
 
-> All project dependencies must be added to the `dev` group. Use the alias `pdm-dev <package>` or run `pdm add -G dev <package>` manually.
+```
+        /\
+       /  \       E2E Tests (Playwright)
+      /----\      UI validation, user journeys
+     /      \
+    /--------\    API Tests (Requests + Pydantic)
+   /          \   Contract testing, business logic
+  /------------\
+ /              \ Unit Tests (pytest)
+/________________\ Isolated component testing
+```
+
+| Layer | Framework | Purpose | Current Coverage |
+|-------|-----------|---------|------------------|
+| **E2E** | Playwright | User journey validation | 3 tests |
+| **API** | Requests + Pydantic | Contract & integration testing | 3 tests |
+| **Unit** | pytest | Isolated component testing | TBD |
+
+### Test Categories (Markers)
+
+| Marker | Description | Usage |
+|--------|-------------|-------|
+| `@pytest.mark.smoke` | Critical path tests | Fast feedback, PR gates |
+| `@pytest.mark.regression` | Full regression suite | Nightly/release validation |
+| `@pytest.mark.api` | API integration tests | Backend contract testing |
+| `@pytest.mark.e2e` | End-to-end UI tests | User journey validation |
+| `@pytest.mark.journal` | Journal feature tests | Feature-specific grouping |
+
+### Design Patterns
+
+- **Page Object Model (POM)**: E2E tests use encapsulated page objects (`tests/e2e/pages/`)
+- **Schema Validation**: API responses validated via Pydantic models (`tests/api/schemas/`)
+- **Fixture-Based DI**: Test data and clients injected via pytest fixtures
+- **Factory Pattern**: Test data generated using Faker with dataclass factories
 
 ---
 
-### Environment Variables
+## Project Structure
 
-The following environment variables are required for running tests:
+```
+lumairej-tests/
+├── .github/
+│   └── workflows/
+│       └── ci.yml              # CI/CD pipeline
+├── tests/
+│   ├── api/
+│   │   ├── clients/
+│   │   │   └── api_client.py   # HTTP client wrapper
+│   │   ├── schemas/
+│   │   │   └── journal_schema.py # Pydantic response models
+│   │   └── tests/
+│   │       └── test_journal_api.py
+│   ├── e2e/
+│   │   ├── conftest.py         # Playwright fixtures
+│   │   ├── pages/
+│   │   │   └── journal_page.py # Page Object Model
+│   │   └── tests/
+│   │       └── test_journaling_ui.py
+│   └── shared/
+│       ├── constants.py        # Timeout configuration
+│       ├── fixtures.py         # Shared pytest fixtures
+│       └── test_data.py        # Faker-based data factories
+├── conftest.py                 # Root fixture configuration
+├── pyproject.toml              # Project config & pytest settings
+└── .env.template               # Environment variable template
+```
 
-| Variable | Description | Required | Default | Example |
-|----------|-------------|----------|---------|---------|
-| `BASE_URL` | Base URL for the application (API and UI) | Yes | - | `http://localhost:8000` |
-| `CI` | Set to `true` or `1` when running in CI environment | No | `false` | `true` |
-| `DATABASE_URL` | Database connection string (for CI/CD) | Yes (CI only) | - | `postgresql://user:pass@localhost/db` |
+---
 
-#### Local Development Setup
+## Running Tests
 
-Create a `.env` file in the project root:
+### Prerequisites
+
+1. Install [Python 3.14+](https://www.python.org/downloads/)
+2. Install [PDM](https://pdm-project.org/latest/#recommended-installation-method)
+3. Install [Allure CLI](https://docs.qameta.io/allure/#_installing_a_commandline) (for reports)
+
+### Initial Setup
 
 ```bash
+# Install dependencies
+pdm install -G dev
+
+# Install Playwright browsers
+pdm run playwright install chromium
+
+# Install pre-commit hooks
+pdm run pre-commit install
+
+# Configure environment
+cp .env.template .env
+# Edit .env with your BASE_URL
+```
+
+### API Tests
+
+```bash
+# Run all API tests
+pdm run pytest -m api
+
+# Run smoke tests only
+pdm run pytest -m "api and smoke"
+
+# Run with verbose output
+pdm run pytest -m api -v
+```
+
+### E2E Tests
+
+```bash
+# Run all E2E tests
+pdm run pytest -m e2e
+
+# Run specific feature tests
+pdm run pytest -m "e2e and journal"
+
+# Run headed (visible browser)
+CI=false pdm run pytest -m e2e
+```
+
+### Full Test Suite
+
+```bash
+# Run everything
+pdm run test
+
+# Run with Allure results collection
+pdm run test-allure
+```
+
+---
+
+## Quality Gates
+
+### CI/CD Pipeline
+
+The GitHub Actions workflow enforces the following quality gates:
+
+| Gate | Trigger | Action |
+|------|---------|--------|
+| **API Tests** | PR to main, dispatch | Must pass for E2E to run |
+| **E2E Tests** | After API tests pass | Browser automation validation |
+| **Status Report** | On dispatch events | Reports back to main repo |
+
+### Execution Flow
+
+```
+┌─────────────────┐
+│  Setup Job      │  Checkout, install deps, cache Playwright
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  API Tests      │  Start SUT → Run API tests → Upload results
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  E2E Tests      │  Start SUT → Run E2E tests → Upload results
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  Report Status  │  Post commit status back to LumaireJ repo
+└─────────────────┘
+```
+
+### Local Quality Checks
+
+```bash
+# Lint code
+pdm run lint
+
+# Auto-fix lint issues
+pdm run fix
+
+# Format code
+pdm run format
+```
+
+---
+
+## Test Reporting
+
+### Allure Reports
+
+```bash
+# Generate report from results
+pdm run report
+
+# Open report in browser
+pdm run open_report
+```
+
+### CI Artifacts
+
+Each CI run uploads:
+- `allure-report-api/` - API test results
+- `allure-report-e2e/` - E2E test results
+- `app-logs-*` - SUT (System Under Test) logs
+
+---
+
+## Environment Variables
+
+| Variable | Description | Required | Default |
+|----------|-------------|----------|---------|
+| `BASE_URL` | Application base URL | Yes | - |
+| `CI` | CI environment flag | No | `false` |
+| `DATABASE_URL` | Database connection (CI only) | CI only | - |
+
+### Local Development
+
+```bash
+# .env file
 BASE_URL=http://localhost:8000
 CI=false
 ```
 
-#### CI/CD Setup
+### GitHub Actions
 
-These variables should be configured as GitHub Secrets:
-- `BASE_URL`: The base URL where the SUT is accessible
-- `DATABASE_URL`: Database connection string for the test environment
-
----
-
-### Running Tests Locally
-
-#### All Tests
-- Run the complete test suite:
-   ```bash
-  pdm run test
-
-- Run with Allure results:
-   ```bash
-  pdm run test-allure
-
-#### API Tests
-- Run all API tests:
-   ```bash
-  pdm run pytest -m api
-
-- Custom target (e.g., dev/stage):
-   ```bash
-  pdm run pytest --base-url=http://localhost:8000
-
-#### E2E Tests
-- Run all E2E tests:
-   ```bash
-  pdm run pytest -m e2e
-
-- Run a specific test suite:
-   ```bash
-  pdm run pytest -m journal
+Configure as repository secrets:
+- `BASE_URL` - SUT endpoint URL
+- `DATABASE_URL` - Test database connection
+- `PAT_FOR_MAIN_REPO` - Token for cross-repo status reporting
 
 ---
 
-### Allure Report Setup
+## Contributing
 
-- Generate local report:
-   ```bash
-  pdm run report
+### Adding New Tests
 
-- Open in the browser:
-   ```bash
-  pdm run open_report
+1. **API Tests**: Add to `tests/api/tests/`, use `@pytest.mark.api`
+2. **E2E Tests**: Add to `tests/e2e/tests/`, create Page Objects in `pages/`
+3. **Shared Data**: Add fixtures to `tests/shared/test_data.py`
 
-> You can also configure CI to upload Allure artifacts after each run.
+### Test Naming Convention
 
----
+```python
+def test_<action>_<expected_outcome>():
+    """Test that <action> results in <expected_outcome>."""
+```
 
-### Running Tests in GitHub Actions
+### Commit Standards
 
-Tests are triggered automatically by the [main backend repo](https://github.com/darliaro/LumaireJ) via a `repository_dispatch` event.
-
-#### Manual Trigger
-- Push or merge to `main` in `LumaireJ`
-- GitHub Actions workflow sends dispatch signal to this repo
-- This repo runs its own workflow to:
-  - Checkout both codebases
-  - Start backend service via Docker
-  - Run API and E2E tests
-  - Generate Allure results (optional)
-  - Upload test logs or artifacts (TBD)
+Follow [Conventional Commits](https://www.conventionalcommits.org/):
+- `feat:` New test or feature
+- `fix:` Bug fix in test logic
+- `refactor:` Test restructuring
+- `chore:` Dependency updates, CI changes
 
 ---
 
-### Linting and Formatting ([ruff](https://github.com/astral-sh/ruff))
+## Author
 
-- Check code quality:
-   ```bash
-  pdm lint
-
-- Auto-fix and format:
-   ```bash
-  pdm lint --fix && pdm format
-
----
-
-### Test Strategy
-
-#### API Tests verify:
-- HTTP response correctness
-- Data validation
-- Business logic at API level
-- JSON response structure
-- Error codes
-
-#### E2E Tests verify:
-- UI integration with API
-- User scenarios
-- Visual display
-- Element interactivity
-- Page navigation
-
-#### Avoiding Duplication:
-1. **API tests** focus on API contract verification
-2. **E2E tests** focus on user scenarios
-3. **Shared data** is used in both test types
-4. **Different markers** for clear separation
-
----
-
-### Tips
-
-- Add test-level fixtures in `conftest.py` and use `--base-url` to control environment
-- Use `allure-results/` as the output directory for Pytest + Allure
-- Keep `.env` untracked, use `.env.template` for defaults
-- Use Faker for generating realistic test data
-- Follow Page Object Model pattern for E2E tests
-- Use modern Python 3.13+ syntax throughout the codebase
+**Darie Ro** - [glicerinn@gmail.com](mailto:glicerinn@gmail.com)
