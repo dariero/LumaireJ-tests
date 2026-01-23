@@ -1,5 +1,6 @@
 """Simple E2E test configuration."""
 
+import os
 from collections.abc import Generator
 from pathlib import Path
 
@@ -26,7 +27,16 @@ def playwright_instance() -> Generator[Playwright]:
 def browser(playwright_instance: Playwright, is_ci: bool) -> Generator[Browser]:
     """Provide a browser instance."""
     headless = is_ci
-    browser = playwright_instance.chromium.launch(headless=headless)
+    browser_name = os.getenv("BROWSER", "chromium")
+
+    # Get the browser launcher based on browser name
+    if browser_name == "firefox":
+        browser = playwright_instance.firefox.launch(headless=headless)
+    elif browser_name == "webkit":
+        browser = playwright_instance.webkit.launch(headless=headless)
+    else:  # Default to chromium
+        browser = playwright_instance.chromium.launch(headless=headless)
+
     yield browser
     browser.close()
 
