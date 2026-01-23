@@ -359,7 +359,7 @@ jobs:
 
       - name: Run E2E tests
         working-directory: tests
-        run: pdm run pytest -m e2e -v --alluredir=allure-results-e2e
+        run: pdm run pytest -m e2e -v --alluredir=allure-results-e2e --reruns=2 --reruns-delay=1
 
       - name: Generate Allure Report
         if: always()

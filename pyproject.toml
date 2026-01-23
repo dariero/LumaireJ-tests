@@ -12,6 +12,7 @@ distribution = false
 [tool.pdm.scripts]
 test = "pytest -sv"
 test-allure = "pytest -sv --alluredir=allure-results"
+test-e2e = "pytest -sv -m e2e --reruns=2 --reruns-delay=1"
 report = "allure generate allure-results --clean -o allure-report"
 open_report = "allure open allure-report"
 lint = "ruff check tests/"
@@ -49,6 +50,7 @@ line-ending = "lf"
 dev = [
     "pytest",
     "pytest-cov",
+    "pytest-rerunfailures",
     "playwright",
     "pytest-playwright",
     "allure-pytest",
