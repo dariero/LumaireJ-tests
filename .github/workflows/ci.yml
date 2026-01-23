@@ -9,6 +9,8 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
+  checks: write
 
 concurrency:
   group: api-e2e-tests-${{ github.ref }}
@@ -209,7 +211,7 @@ jobs:
 
       - name: Run API tests
         working-directory: tests
-        run: pdm run pytest -m api -v --alluredir=allure-results-api
+        run: pdm run pytest -m api -v --alluredir=allure-results-api --junitxml=junit-results-api.xml
 
       - name: Generate Allure Report
         if: always()
@@ -218,6 +220,15 @@ jobs:
           if [[ -d allure-results-api && -n "$(ls -A allure-results-api)" ]]; then
             allure generate allure-results-api --clean -o allure-report-api || true
           fi
+
+      - name: Publish API Test Results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: API Test Results
+          path: tests/junit-results-api.xml
+          reporter: java-junit
+          fail-on-error: false
 
       - name: Upload Allure artifacts
         if: always()
@@ -359,7 +370,7 @@ jobs:
 
       - name: Run E2E tests
         working-directory: tests
-        run: pdm run pytest -m e2e -v --alluredir=allure-results-e2e --reruns=2 --reruns-delay=1
+        run: pdm run pytest -m e2e -v --alluredir=allure-results-e2e --junitxml=junit-results-e2e.xml --reruns=2 --reruns-delay=1
 
       - name: Generate Allure Report
         if: always()
@@ -368,6 +379,15 @@ jobs:
           if [[ -d allure-results-e2e && -n "$(ls -A allure-results-e2e)" ]]; then
             allure generate allure-results-e2e --clean -o allure-report-e2e || true
           fi
+
+      - name: Publish E2E Test Results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: E2E Test Results
+          path: tests/junit-results-e2e.xml
+          reporter: java-junit
+          fail-on-error: false
 
       - name: Upload Allure artifacts
         if: always()
