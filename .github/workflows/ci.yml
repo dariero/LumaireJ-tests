@@ -377,6 +377,22 @@ jobs:
           path: tests/allure-report-e2e
           if-no-files-found: ignore
 
+      - name: Upload failure screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshots
+          path: tests/screenshots/
+          if-no-files-found: ignore
+
+      - name: Upload failure traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-traces
+          path: tests/traces/
+          if-no-files-found: ignore
+
       - name: Upload SUT logs
         if: always()
         uses: actions/upload-artifact@v4
