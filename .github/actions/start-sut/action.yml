@@ -1,0 +1,70 @@
+name: Start SUT
+description: Checkout, setup, and start the System Under Test (LumaireJ)
+
+inputs:
+  repository:
+    description: 'Repository to checkout (owner/repo format)'
+    required: false
+    default: ${{ github.repository_owner }}/LumaireJ
+  python-version:
+    description: 'Python version to use'
+    required: false
+    default: '3.14'
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout SUT
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ inputs.repository }}
+        path: app
+
+    - name: Restore SUT PDM cache
+      uses: actions/cache@v4
+      with:
+        key: pdm-app-${{ runner.os }}-${{ hashFiles('app/pdm.lock') }}
+        restore-keys: pdm-app-
+        path: |
+          ~/.cache/pdm
+          app/.venv
+
+    - name: Setup PDM for SUT
+      uses: pdm-project/setup-pdm@v4
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install SUT deps
+      working-directory: app
+      shell: bash
+      run: pdm install
+
+    - name: Start SUT
+      working-directory: app
+      shell: bash
+      run: |
+        nohup pdm run dev > ../app_uvicorn.log 2>&1 &
+        echo $! > ../sut.pid
+        sleep 3
+
+    - name: Wait for HTTP server
+      shell: bash
+      run: |
+        MAX_ATTEMPTS=45
+        ATTEMPT=0
+        while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+          if curl --silent --fail --max-time 2 http://localhost:8000/health 2>/dev/null || \
+             curl --silent --fail --max-time 2 http://localhost:8000 2>/dev/null; then
+            echo "✅ Server is ready!"
+            exit 0
+          fi
+          ATTEMPT=$((ATTEMPT + 1))
+          echo "Waiting for server... (attempt $ATTEMPT/$MAX_ATTEMPTS)"
+          sleep 2
+        done
+        echo "❌ Server failed to start within timeout"
+        if [[ -f app_uvicorn.log ]]; then
+          echo "=== SUT logs ==="
+          tail -50 app_uvicorn.log
+        fi
+        exit 1

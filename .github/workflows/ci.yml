@@ -125,57 +125,8 @@ jobs:
       - name: Checkout tests
         uses: actions/checkout@v4
 
-      - name: Checkout SUT
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ github.repository_owner }}/LumaireJ
-          path: app
-
-      - name: Restore SUT PDM cache
-        uses: actions/cache@v4
-        with:
-          key: pdm-app-${{ runner.os }}-${{ hashFiles('app/pdm.lock') }}
-          restore-keys: pdm-app-
-          path: |
-            ~/.cache/pdm
-            app/.venv
-
-      - name: Setup PDM for SUT
-        uses: pdm-project/setup-pdm@v4
-        with:
-          python-version: '3.14'
-
-      - name: Install SUT deps
-        working-directory: app
-        run: pdm install
-
       - name: Start SUT
-        working-directory: app
-        run: |
-          nohup pdm run dev > ../app_uvicorn.log 2>&1 &
-          echo $! > ../sut.pid
-          sleep 3
-
-      - name: Wait for HTTP server
-        run: |
-          MAX_ATTEMPTS=45
-          ATTEMPT=0
-          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-            if curl --silent --fail --max-time 2 http://localhost:8000/health 2>/dev/null || \
-               curl --silent --fail --max-time 2 http://localhost:8000 2>/dev/null; then
-              echo "✅ Server is ready!"
-              exit 0
-            fi
-            ATTEMPT=$((ATTEMPT + 1))
-            echo "Waiting for server... (attempt $ATTEMPT/$MAX_ATTEMPTS)"
-            sleep 2
-          done
-          echo "❌ Server failed to start within timeout"
-          if [[ -f app_uvicorn.log ]]; then
-            echo "=== SUT logs ==="
-            tail -50 app_uvicorn.log
-          fi
-          exit 1
+        uses: ./.github/actions/start-sut
 
       - name: Restore test PDM cache
         uses: actions/cache@v4
@@ -277,57 +228,8 @@ jobs:
       - name: Checkout tests
         uses: actions/checkout@v4
 
-      - name: Checkout SUT
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ github.repository_owner }}/LumaireJ
-          path: app
-
-      - name: Restore SUT PDM cache
-        uses: actions/cache@v4
-        with:
-          key: pdm-app-${{ runner.os }}-${{ hashFiles('app/pdm.lock') }}
-          restore-keys: pdm-app-
-          path: |
-            ~/.cache/pdm
-            app/.venv
-
-      - name: Setup PDM for SUT
-        uses: pdm-project/setup-pdm@v4
-        with:
-          python-version: '3.14'
-
-      - name: Install SUT deps
-        working-directory: app
-        run: pdm install
-
       - name: Start SUT
-        working-directory: app
-        run: |
-          nohup pdm run dev > ../app_uvicorn.log 2>&1 &
-          echo $! > ../sut.pid
-          sleep 3
-
-      - name: Wait for HTTP server
-        run: |
-          MAX_ATTEMPTS=45
-          ATTEMPT=0
-          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-            if curl --silent --fail --max-time 2 http://localhost:8000/health 2>/dev/null || \
-               curl --silent --fail --max-time 2 http://localhost:8000 2>/dev/null; then
-              echo "✅ Server is ready!"
-              exit 0
-            fi
-            ATTEMPT=$((ATTEMPT + 1))
-            echo "Waiting for server... (attempt $ATTEMPT/$MAX_ATTEMPTS)"
-            sleep 2
-          done
-          echo "❌ Server failed to start within timeout"
-          if [[ -f app_uvicorn.log ]]; then
-            echo "=== SUT logs ==="
-            tail -50 app_uvicorn.log
-          fi
-          exit 1
+        uses: ./.github/actions/start-sut
 
       - name: Restore test PDM cache
         uses: actions/cache@v4
