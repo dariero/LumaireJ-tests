@@ -70,10 +70,46 @@ Review a test automation pull request.
    - [ ] Tests pass locally"
    ```
 
+   Move linked issue to Approved status (preserves Priority/Size):
+   ```bash
+   # Extract issue number from PR (from "Closes #XX" in body or branch name)
+   ISSUE_NUMBER=$(gh pr view <pr-number> --repo dariero/lumairej-tests --json body --jq '.body' | grep -oE 'Closes #[0-9]+' | grep -oE '[0-9]+')
+
+   ISSUE_NODE_ID=$(gh issue view $ISSUE_NUMBER --repo dariero/lumairej-tests --json id --jq '.id')
+
+   ITEM_ID=$(gh api graphql -f query='
+     mutation($project: ID!, $content: ID!) {
+       addProjectV2ItemById(input: {projectId: $project, contentId: $content}) {
+         item { id }
+       }
+     }' -f project="PVT_kwHODR8J4s4A9wbx" -f content="$ISSUE_NODE_ID" --jq '.data.addProjectV2ItemById.item.id')
+
+   # Update Status only - Priority and Size are preserved
+   gh api graphql -f query='
+     mutation($project: ID!, $item: ID!, $field: ID!, $value: String!) {
+       updateProjectV2ItemFieldValue(input: {projectId: $project, itemId: $item, fieldId: $field, value: {singleSelectOptionId: $value}}) {
+         projectV2Item { id }
+       }
+     }' -f project="PVT_kwHODR8J4s4A9wbx" -f item="$ITEM_ID" -f field="PVTSSF_lAHODR8J4s4A9wbxzgxXTgM" -f value="df73e18b"
+
+   # Verify Priority and Size are still set
+   gh api graphql -f query='
+     query($item: ID!) {
+       node(id: $item) {
+         ... on ProjectV2Item {
+           fieldValueByName(name: "Priority") { ... on ProjectV2ItemFieldSingleSelectValue { name } }
+           fieldValueByName(name: "Size") { ... on ProjectV2ItemFieldSingleSelectValue { name } }
+         }
+       }
+     }' -f item="$ITEM_ID"
+   ```
+
    Then merge:
    ```bash
    gh pr merge <pr-number> --repo dariero/lumairej-tests --squash --delete-branch
    ```
+
+   After merge, run `/complete-issue <issue-number>` to finalize cleanup.
 
    **If CHANGES NEEDED:**
    ```bash

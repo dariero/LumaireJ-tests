@@ -38,15 +38,22 @@ Create a pull request with test report summary.
    | `infra/` | `INFRA` |
    | `refactor/` | `REFACTOR` |
 
-6. **Push branch** if not already pushed:
+6. **Get labels from linked issue**:
+   ```bash
+   LABELS=$(gh issue view <issue-number> --repo dariero/lumairej-tests \
+     --json labels --jq '[.labels[].name] | join(",")')
+   ```
+
+7. **Push branch** if not already pushed:
    ```bash
    git push -u origin <branch-name>
    ```
 
-7. **Create PR** with test report format:
+8. **Create PR** with test report format and inherited labels:
    ```bash
    gh pr create --repo dariero/lumairej-tests \
      --title "[TYPE #issue] Description" \
+     --label "$LABELS" \
      --body "## Summary
    - Change 1
    - Change 2
@@ -75,12 +82,44 @@ Create a pull request with test report summary.
      --assignee dariero
    ```
 
-8. **Add to project board**:
+9. **Move issue to AI Review** on the project board (preserves Priority/Size):
    ```bash
-   gh project item-add 1 --owner dariero --url <pr-url>
-   ```
+   ISSUE_NODE_ID=$(gh issue view <issue-number> --repo dariero/lumairej-tests --json id --jq '.id')
 
-9. **Report PR URL** to user.
+   ITEM_ID=$(gh api graphql -f query='
+     mutation($project: ID!, $content: ID!) {
+       addProjectV2ItemById(input: {projectId: $project, contentId: $content}) {
+         item { id }
+       }
+     }' -f project="PVT_kwHODR8J4s4A9wbx" -f content="$ISSUE_NODE_ID" --jq '.data.addProjectV2ItemById.item.id')
+
+   # Update Status only - Priority and Size are preserved
+   gh api graphql -f query='
+     mutation($project: ID!, $item: ID!, $field: ID!, $value: String!) {
+       updateProjectV2ItemFieldValue(input: {projectId: $project, itemId: $item, fieldId: $field, value: {singleSelectOptionId: $value}}) {
+         projectV2Item { id }
+       }
+     }' -f project="PVT_kwHODR8J4s4A9wbx" -f item="$ITEM_ID" -f field="PVTSSF_lAHODR8J4s4A9wbxzgxXTgM" -f value="61e4505c"
+
+   # Verify Priority and Size are still set
+   gh api graphql -f query='
+     query($item: ID!) {
+       node(id: $item) {
+         ... on ProjectV2Item {
+           fieldValueByName(name: "Priority") { ... on ProjectV2ItemFieldSingleSelectValue { name } }
+           fieldValueByName(name: "Size") { ... on ProjectV2ItemFieldSingleSelectValue { name } }
+         }
+       }
+     }' -f item="$ITEM_ID"
+   ```
+   If Priority or Size are null, warn user to set them via project board.
+
+10. **Add PR to project board**:
+    ```bash
+    gh project item-add 1 --owner dariero --url <pr-url>
+    ```
+
+11. **Report PR URL** to user.
 
 ## Author
 Darie Ro <glicerinn@gmail.com>
