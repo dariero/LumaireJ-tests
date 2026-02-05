@@ -2,12 +2,32 @@
 
 Create a new GitHub issue for test automation tasks.
 
-## Arguments
-- `$ARGUMENTS` - Issue description or title
+<variables>
+  <issue_description>$ARGUMENTS</issue_description>
+</variables>
+
+<constraints>
+- MUST validate that $ARGUMENTS is non-empty. If empty, ask: "What issue should I create? Provide a title or description."
+- MUST select the issue type from the table below based on the request. If the request does not clearly match a type, ask the user to clarify.
+- MUST NOT create an issue without labels.
+- MUST NOT proceed if any GraphQL mutation fails — report the error and stop.
+- MUST ask the user to confirm Priority and Size before setting them.
+</constraints>
+
+<!-- Project board IDs: see _project-board.md for canonical reference -->
+<project_board_ids>
+  <project_id>PVT_kwHODR8J4s4A9wbx</project_id>
+  <priority_field>PVTSSF_lAHODR8J4s4A9wbxzgxXT_I</priority_field>
+  <size_field>PVTSSF_lAHODR8J4s4A9wbxzgxXT_M</size_field>
+  <priority_options>Critical: 79628723 | High: 0a877460 | Medium: da944a9c | Low: 56c1c445</priority_options>
+  <size_options>XS: 6c6483d2 | S: f784b110 | M: 7515a9f1 | L: 817d0097 | XL: db339eb2</size_options>
+</project_board_ids>
 
 ## Instructions
 
-1. **Determine issue type** by analyzing the request:
+1. **Validate input**: If `$ARGUMENTS` is empty, ask the user: "What issue should I create? Provide a title or description."
+
+2. **Determine issue type** by analyzing the request:
 
    | Type | Description | Title Prefix |
    |------|-------------|--------------|
@@ -16,7 +36,9 @@ Create a new GitHub issue for test automation tasks.
    | `[INFRA]` | CI/CD, tooling, dependencies | Infrastructure |
    | `[REFACTOR]` | Test code improvement | Code quality |
 
-2. **Select appropriate template** based on type:
+   If the request does not clearly match a type, ask the user: "Which issue type best fits this request?" and present the options.
+
+3. **Select appropriate template** based on type:
 
    **For `[TEST]` - Test Scenario:**
    ```markdown
@@ -58,7 +80,7 @@ Create a new GitHub issue for test automation tasks.
    [Attach relevant output]
    ```
 
-3. **Determine labels** based on issue type and content:
+4. **Determine labels** based on issue type and content:
 
    | Issue Type | Labels to Apply |
    |------------|-----------------|
@@ -69,7 +91,7 @@ Create a new GitHub issue for test automation tasks.
    | `[INFRA]` | `infra` |
    | `[REFACTOR]` | `infra` (if CI/tooling) or test type labels |
 
-4. **Create the issue with labels**:
+5. **Create the issue with labels**:
    ```bash
    gh issue create --repo dariero/lumairej-tests \
      --title "[TYPE] Description" \
@@ -84,16 +106,14 @@ Create a new GitHub issue for test automation tasks.
    - `--label "API"` for API test issues
    - `--label "E2E,infra"` for E2E infrastructure issues
 
-5. **Determine Priority** based on issue urgency:
+6. **Ask the user to confirm Priority and Size**:
 
    | Priority | When to Use |
    |----------|-------------|
-   | 🔴 Critical | Blocking issue, CI broken, tests failing in prod |
-   | 🟠 High | Important feature, significant flakiness |
-   | 🟡 Medium | Normal priority work (default) |
-   | 🟢 Low | Nice-to-have, minor improvements |
-
-6. **Estimate Size** based on effort:
+   | Critical | Blocking issue, CI broken, tests failing in prod |
+   | High | Important feature, significant flakiness |
+   | Medium | Normal priority work (default) |
+   | Low | Nice-to-have, minor improvements |
 
    | Size | Effort |
    |------|--------|
@@ -120,7 +140,7 @@ Create a new GitHub issue for test automation tasks.
        }
      }' -f project="PVT_kwHODR8J4s4A9wbx" -f content="$ISSUE_NODE_ID" --jq '.data.addProjectV2ItemById.item.id')
 
-   # Set Priority (choose one option ID)
+   # Set Priority (use option ID from user's selection)
    # Critical: 79628723 | High: 0a877460 | Medium: da944a9c | Low: 56c1c445
    gh api graphql -f query='
      mutation($project: ID!, $item: ID!, $field: ID!, $value: String!) {
@@ -129,7 +149,7 @@ Create a new GitHub issue for test automation tasks.
        }
      }' -f project="PVT_kwHODR8J4s4A9wbx" -f item="$ITEM_ID" -f field="PVTSSF_lAHODR8J4s4A9wbxzgxXT_I" -f value="<priority-option-id>"
 
-   # Set Size (choose one option ID)
+   # Set Size (use option ID from user's selection)
    # XS: 6c6483d2 | S: f784b110 | M: 7515a9f1 | L: 817d0097 | XL: db339eb2
    gh api graphql -f query='
      mutation($project: ID!, $item: ID!, $field: ID!, $value: String!) {
@@ -138,14 +158,12 @@ Create a new GitHub issue for test automation tasks.
        }
      }' -f project="PVT_kwHODR8J4s4A9wbx" -f item="$ITEM_ID" -f field="PVTSSF_lAHODR8J4s4A9wbxzgxXT_M" -f value="<size-option-id>"
    ```
+   If any GraphQL mutation returns an error, report the error to the user and stop.
 
 8. **Report the issue** to the user with:
    - Issue number and URL
    - Priority and Size assigned
    - Labels applied
-
-## Author
-Darie Ro <glicerinn@gmail.com>
 
 ## User Request
 $ARGUMENTS

@@ -2,19 +2,40 @@
 
 Review a test automation pull request.
 
-## Arguments
-- `$ARGUMENTS` - PR number or URL
+<variables>
+  <pr_number>$ARGUMENTS</pr_number>
+</variables>
+
+<constraints>
+- MUST validate that $ARGUMENTS contains a PR number. If empty, ask: "Which PR number should I review?"
+- MUST evaluate every item in the review checklist before making a decision.
+- MUST NOT merge a PR without explicit user confirmation. Always ask before merging.
+- MUST NOT approve a PR if any checklist item fails — request changes instead.
+- MUST NOT proceed if any GraphQL mutation fails — report the error and stop.
+- MUST run tests locally for ALL PRs before making a decision.
+- When extracting issue numbers from the PR body, use only the first match from `Closes #XX`.
+</constraints>
+
+<!-- Project board IDs: see _project-board.md for canonical reference -->
+<project_board_ids>
+  <project_id>PVT_kwHODR8J4s4A9wbx</project_id>
+  <status_field>PVTSSF_lAHODR8J4s4A9wbxzgxXTgM</status_field>
+  <approved_status>df73e18b</approved_status>
+</project_board_ids>
 
 ## Instructions
 
-1. **Fetch PR details**:
+1. **Validate input**: If `$ARGUMENTS` is empty or non-numeric, ask the user: "Which PR number should I review?"
+
+2. **Fetch PR details**:
    ```bash
    gh pr view <pr-number> --repo dariero/lumairej-tests
    gh pr diff <pr-number> --repo dariero/lumairej-tests
    gh pr checks <pr-number> --repo dariero/lumairej-tests
    ```
+   If the PR does not exist, report the error and stop.
 
-2. **Test Automation Review Checklist**:
+3. **Test Automation Review Checklist** — evaluate every item:
 
    ### Page Object Model (E2E)
    - [ ] Selectors defined as class constants
@@ -44,36 +65,36 @@ Review a test automation pull request.
    - [ ] Proper HTTP status code assertions
    - [ ] Request/response structure verified
 
-3. **Check related issue**:
+4. **Check related issue**:
    ```bash
    gh issue view <linked-issue-number> --repo dariero/lumairej-tests
    ```
 
-4. **Run tests locally** (if changes are significant):
+5. **Run tests locally**:
    ```bash
    git fetch origin pull/<pr-number>/head:pr-<pr-number>
    git checkout pr-<pr-number>
    pdm run pytest -v
    ```
 
-5. **Make decision** based on review:
+6. **Make decision** based on review:
 
-   **If APPROVED:**
+   **If ALL checklist items pass — APPROVE:**
    ```bash
    gh pr review <pr-number> --repo dariero/lumairej-tests --approve \
      --body "LGTM - Test automation changes look good.
 
    Verified:
-   - [ ] Page Objects follow POM pattern
-   - [ ] Fixtures properly scoped
-   - [ ] No hardcoded waits
-   - [ ] Tests pass locally"
+   - [x] Page Objects follow POM pattern
+   - [x] Fixtures properly scoped
+   - [x] No hardcoded waits
+   - [x] Tests pass locally"
    ```
 
    Move linked issue to Approved status (preserves Priority/Size):
    ```bash
-   # Extract issue number from PR (from "Closes #XX" in body or branch name)
-   ISSUE_NUMBER=$(gh pr view <pr-number> --repo dariero/lumairej-tests --json body --jq '.body' | grep -oE 'Closes #[0-9]+' | grep -oE '[0-9]+')
+   # Extract first issue number only from PR body
+   ISSUE_NUMBER=$(gh pr view <pr-number> --repo dariero/lumairej-tests --json body --jq '.body' | grep -oE 'Closes #[0-9]+' | head -1 | grep -oE '[0-9]+')
 
    ISSUE_NODE_ID=$(gh issue view $ISSUE_NUMBER --repo dariero/lumairej-tests --json id --jq '.id')
 
@@ -103,15 +124,19 @@ Review a test automation pull request.
        }
      }' -f item="$ITEM_ID"
    ```
+   If any GraphQL mutation fails, report the error to the user and stop.
 
-   Then merge:
+   **Merge requires explicit user confirmation.**
+   Ask the user: "PR #<pr-number> is approved. Merge with squash and delete the branch?"
+   Only if the user confirms:
    ```bash
    gh pr merge <pr-number> --repo dariero/lumairej-tests --squash --delete-branch
    ```
+   NEVER merge without user confirmation.
 
-   After merge, run `/complete-issue <issue-number>` to finalize cleanup.
+   After merge, suggest: "Run `/complete-issue <issue-number>` to finalize cleanup."
 
-   **If CHANGES NEEDED:**
+   **If ANY checklist item fails — REQUEST CHANGES:**
    ```bash
    gh pr review <pr-number> --repo dariero/lumairej-tests --request-changes \
      --body "Please address the following:
@@ -131,9 +156,6 @@ Review a test automation pull request.
 | Direct locator | `page.locator("#id")` in test | Move to Page Object |
 | Wrong scope | `@fixture(scope="session")` for page | Use `scope="function"` |
 | Missing marker | No `@pytest.mark.api` | Add appropriate marker |
-
-## Author
-Darie Ro <glicerinn@gmail.com>
 
 ## PR to Review
 $ARGUMENTS

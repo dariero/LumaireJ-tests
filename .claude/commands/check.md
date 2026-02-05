@@ -2,8 +2,16 @@
 
 Run linting and tests before pushing.
 
-## Arguments
-- `$ARGUMENTS` - (Optional) Specific test path, markers, or flags
+<variables>
+  <test_args>$ARGUMENTS</test_args>
+</variables>
+
+<constraints>
+- MUST run linting before tests.
+- MUST report all failures with file:line references.
+- MUST NOT push code or modify any files unless explicitly running auto-fix.
+- If lint errors are found, ask the user: "Lint errors found. Run `pdm run fix` to auto-fix?" — only run auto-fix if the user confirms.
+</constraints>
 
 ## Instructions
 
@@ -11,7 +19,8 @@ Run linting and tests before pushing.
    ```bash
    pdm run lint
    ```
-   If errors found, offer to run `pdm run fix` to auto-fix.
+   If errors are found, ask the user: "Lint errors found. Run `pdm run fix` to auto-fix?"
+   Only run `pdm run fix` if the user confirms.
 
 2. **Collect tests first** (dry run):
    ```bash
@@ -24,12 +33,13 @@ Run linting and tests before pushing.
    pdm run pytest -v --tb=short
    ```
 
-   For specific test types:
+   If `$ARGUMENTS` specifies a test path or marker, use the appropriate filter:
    - API only: `pdm run pytest -m api -v`
    - E2E only: `pdm run pytest -m e2e -v`
    - Smoke only: `pdm run pytest -m smoke -v`
 
 4. **Report results**:
+
    | Status | Message |
    |--------|---------|
    | All pass | "Ready to push" |
@@ -41,9 +51,6 @@ Run linting and tests before pushing.
    git status
    git diff --stat
    ```
-
-## Author
-Darie Ro <glicerinn@gmail.com>
 
 ## Test Arguments
 $ARGUMENTS

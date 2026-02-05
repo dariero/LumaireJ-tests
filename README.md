@@ -259,10 +259,11 @@ def test_<action>_<expected_outcome>():
 ### Commit Standards
 
 Follow [Conventional Commits](https://www.conventionalcommits.org/):
-- `feat:` New test or feature
-- `fix:` Bug fix in test logic
-- `refactor:` Test restructuring
-- `chore:` Dependency updates, CI changes
+- `test:` New test cases or test coverage
+- `fix(tests):` Bug fixes in test code
+- `refactor(tests):` Test code restructuring
+- `ci:` CI/CD pipeline changes
+- `chore:` Dependency updates, config changes
 
 ---
 
