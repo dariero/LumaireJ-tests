@@ -7,6 +7,7 @@ import pytest
 from faker import Faker
 
 fake = Faker("en_US")
+Faker.seed(0)  # Make test data reproducible
 
 MOOD_TAGS = [
     ("😍", "In Love"),

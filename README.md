@@ -5,7 +5,7 @@
 
 # LumaireJ Test Automation Framework
 
-Dedicated test automation repository for [LumaireJ](https://github.com/darliaro/LumaireJ) - a journaling and mood tracking application.
+Dedicated test automation repository for [LumaireJ](https://github.com/darie/LumaireJ) - a journaling and mood tracking application.
 
 ---
 

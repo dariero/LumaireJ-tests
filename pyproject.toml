@@ -12,17 +12,18 @@ distribution = false
 [tool.pdm.scripts]
 test = "pytest -sv"
 test-allure = "pytest -sv --alluredir=allure-results"
+test-cov = "pytest -sv --alluredir=allure-results --cov=tests --cov-report=xml"
 test-e2e = "pytest -sv -m e2e --reruns=2 --reruns-delay=1"
 report = "allure generate allure-results --clean -o allure-report"
 open_report = "allure open allure-report"
-lint = "ruff check tests/"
-fix = "ruff check tests/ --fix"
-format = "ruff format tests/"
+lint = "ruff check tests/ conftest.py"
+fix = "ruff check tests/ conftest.py --fix"
+format = "ruff format tests/ conftest.py"
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
-addopts = "-sv --alluredir=allure-results --cov=tests --cov-report=xml"
+addopts = "-sv --alluredir=allure-results"
 markers = [
     "smoke: smoke tests",
     "regression: regression tests",
@@ -48,17 +49,16 @@ line-ending = "lf"
 
 [dependency-groups]
 dev = [
-    "pytest",
-    "pytest-cov",
-    "pytest-rerunfailures",
-    "playwright",
-    "pytest-playwright",
-    "allure-pytest",
-    "requests",
-    "pre-commit",
-    "ruff",
-    "pydantic",
-    "dotenv",
-    "typing",
-    "faker"
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "pytest-rerunfailures>=14.0",
+    "playwright>=1.40",
+    "pytest-playwright>=0.5",
+    "allure-pytest>=2.13",
+    "requests>=2.31",
+    "pre-commit>=3.5",
+    "ruff>=0.4",
+    "pydantic>=2.0",
+    "python-dotenv>=1.0",
+    "faker>=24.0"
 ]

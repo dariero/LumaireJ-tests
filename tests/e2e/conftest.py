@@ -23,9 +23,9 @@ def playwright_instance() -> Generator[Playwright]:
         yield p
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="session")
 def browser(playwright_instance: Playwright, is_ci: bool) -> Generator[Browser]:
-    """Provide a browser instance."""
+    """Provide a browser instance (session-scoped for performance)."""
     headless = is_ci
     browser_name = os.getenv("BROWSER", "chromium")
 
@@ -47,38 +47,38 @@ def page(browser: Browser, request: pytest.FixtureRequest) -> Generator[Page]:
     context = browser.new_context()
     page = context.new_page()
 
-    # Create artifact directories
-    screenshots_dir = Path("screenshots")
-    traces_dir = Path("traces")
+    # Create artifact directories with absolute paths
+    project_root = Path(__file__).resolve().parent.parent.parent
+    screenshots_dir = project_root / "screenshots"
+    traces_dir = project_root / "traces"
     screenshots_dir.mkdir(exist_ok=True)
     traces_dir.mkdir(exist_ok=True)
 
-    # Start tracing with screenshots and snapshots
-    context.tracing.start(screenshots=True, snapshots=True, sources=True)
+    # Start tracing (sources=True only if TRACE_SOURCES env var is set)
+    enable_sources = os.getenv("TRACE_SOURCES", "false").lower() in ("1", "true")
+    context.tracing.start(screenshots=True, snapshots=True, sources=enable_sources)
 
     yield page
 
-    # Check if test failed
-    test_failed = (
-        request.node.rep_call.failed if hasattr(request.node, "rep_call") else False
-    )
+    try:
+        # Check if test failed
+        test_failed = request.node.rep_call.failed if hasattr(request.node, "rep_call") else False
 
-    if test_failed:
-        # Generate safe filename from test name
-        test_name = request.node.name
-        safe_name = "".join(
-            c if c.isalnum() or c in ("-", "_") else "_" for c in test_name
-        )
+        if test_failed:
+            # Generate safe filename from test name
+            test_name = request.node.name
+            safe_name = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in test_name)
 
-        # Capture screenshot
-        screenshot_path = screenshots_dir / f"{safe_name}.png"
-        page.screenshot(path=str(screenshot_path))
+            # Capture screenshot
+            screenshot_path = screenshots_dir / f"{safe_name}.png"
+            page.screenshot(path=str(screenshot_path))
 
-        # Save trace
-        trace_path = traces_dir / f"{safe_name}.zip"
-        context.tracing.stop(path=str(trace_path))
-    else:
-        # Stop tracing without saving if test passed
-        context.tracing.stop()
-
-    context.close()
+            # Save trace
+            trace_path = traces_dir / f"{safe_name}.zip"
+            context.tracing.stop(path=str(trace_path))
+        else:
+            # Stop tracing without saving if test passed
+            context.tracing.stop()
+    finally:
+        # Always close context even if artifact capture fails
+        context.close()

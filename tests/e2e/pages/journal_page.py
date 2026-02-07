@@ -24,6 +24,8 @@ class JournalPage:
     def open(self) -> None:
         """Navigate to the journaling page."""
         self.page.goto(self.url, wait_until="load")
+        # Verify page loaded by checking form is present
+        expect(self.page.locator(self.CONTENT)).to_be_visible(timeout=DEFAULT_TIMEOUT_MS)
 
     def fill(self, content: str, mood: str = "") -> None:
         """Fill out the journaling form."""
@@ -49,7 +51,18 @@ class JournalPage:
         text = response_locator.text_content() or ""
         return text
 
-    def is_response_visible(self) -> bool:
-        """Check if a response element is visible."""
+    def is_response_visible(self, timeout: int = 1000) -> bool:
+        """Check if a response element is visible.
+
+        Args:
+            timeout: Maximum time to wait in milliseconds (default: 1000ms)
+
+        Returns:
+            bool: True if visible, False otherwise
+        """
         response_locator = self.page.locator(self.RESPONSE)
-        return response_locator.is_visible()
+        try:
+            response_locator.wait_for(state="visible", timeout=timeout)
+            return True
+        except Exception:
+            return False

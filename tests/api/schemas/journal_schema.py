@@ -1,10 +1,12 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class JournalEntryResponse(BaseModel):
-    """Journal entry schema returned by the POST /journal API"""
+    """Journal entry schema returned by the POST /journal API."""
+
+    model_config = ConfigDict(strict=True, extra="forbid")
 
     id: int
     content: str

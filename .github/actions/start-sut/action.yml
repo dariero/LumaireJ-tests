@@ -3,9 +3,9 @@ description: Checkout, setup, and start the System Under Test (LumaireJ)
 
 inputs:
   repository:
-    description: 'Repository to checkout (owner/repo format)'
+    description: 'Repository to checkout (must be darie/LumaireJ)'
     required: false
-    default: ${{ github.repository_owner }}/LumaireJ
+    default: 'darie/LumaireJ'
   python-version:
     description: 'Python version to use'
     required: false
@@ -14,14 +14,22 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Validate repository input
+      shell: bash
+      run: |
+        if [[ "${{ inputs.repository }}" != "darie/LumaireJ" ]]; then
+          echo "::error::Invalid repository: ${{ inputs.repository }}. Only darie/LumaireJ is allowed."
+          exit 1
+        fi
+
     - name: Checkout SUT
-      uses: actions/checkout@v4
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       with:
         repository: ${{ inputs.repository }}
         path: app
 
     - name: Restore SUT PDM cache
-      uses: actions/cache@v4
+      uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.2.0
       with:
         key: pdm-app-${{ runner.os }}-${{ hashFiles('app/pdm.lock') }}
         restore-keys: pdm-app-
@@ -30,7 +38,7 @@ runs:
           app/.venv
 
     - name: Setup PDM for SUT
-      uses: pdm-project/setup-pdm@v4
+      uses: pdm-project/setup-pdm@568ddd69406b30de1a4ec5361b94a2d940eb2e0f # v4.2
       with:
         python-version: ${{ inputs.python-version }}
 
@@ -47,14 +55,22 @@ runs:
         echo $! > ../sut.pid
         sleep 3
 
+        # Verify process started
+        if ! ps -p $(cat ../sut.pid) > /dev/null 2>&1; then
+          echo "::error::SUT failed to start"
+          cat ../app_uvicorn.log
+          exit 1
+        fi
+
     - name: Wait for HTTP server
       shell: bash
       run: |
         MAX_ATTEMPTS=45
         ATTEMPT=0
+        BASE_URL="${BASE_URL:-http://localhost:8000}"
         while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-          if curl --silent --fail --max-time 2 http://localhost:8000/health 2>/dev/null || \
-             curl --silent --fail --max-time 2 http://localhost:8000 2>/dev/null; then
+          if curl --silent --fail --max-time 2 "$BASE_URL/health" 2>/dev/null || \
+             curl --silent --fail --max-time 2 "$BASE_URL" 2>/dev/null; then
             echo "✅ Server is ready!"
             exit 0
           fi

@@ -1,19 +1,25 @@
 """Shared fixtures for API and E2E tests."""
 
 import os
+from pathlib import Path
 
 import pytest
 from dotenv import load_dotenv
 
 from tests.api.clients.api_client import APIClient
 
-load_dotenv()
+# Load .env from project root (explicit path for deterministic behavior)
+_project_root = Path(__file__).resolve().parent.parent.parent
+load_dotenv(_project_root / ".env")
 
 
 @pytest.fixture(scope="session")
 def base_url() -> str:
     """Return the base URL for API and UI."""
-    return os.getenv("BASE_URL", "").rstrip("/")
+    url = os.getenv("BASE_URL")
+    if not url:
+        raise ValueError("BASE_URL environment variable must be set")
+    return url.rstrip("/")
 
 
 @pytest.fixture(scope="session")
