@@ -34,7 +34,7 @@ jobs:
           path: app
 
       - name: Cache SUT PDM & venv
-        uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.2.0
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
         with:
           key: pdm-app-${{ runner.os }}-${{ hashFiles('app/pdm.lock') }}
           restore-keys: pdm-app-
@@ -52,7 +52,7 @@ jobs:
         run: pdm install
 
       - name: Cache test PDM & venv
-        uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.2.0
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
         with:
           key: pdm-test-${{ runner.os }}-${{ hashFiles('pdm.lock') }}
           restore-keys: pdm-test-
@@ -69,7 +69,7 @@ jobs:
         run: pdm install -G dev
 
       - name: Cache Playwright browsers
-        uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.2.0
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
         with:
           key: playwright-${{ runner.os }}-${{ hashFiles('pdm.lock') }}
           restore-keys: playwright-${{ runner.os }}-
@@ -87,7 +87,7 @@ jobs:
           java-version: '21'
 
       - name: Cache Allure CLI
-        uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.2.0
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
         with:
           key: allure-2.34.1-${{ runner.os }}
           path: ~/.allure
@@ -129,7 +129,7 @@ jobs:
         uses: ./.github/actions/start-sut
 
       - name: Restore test PDM cache
-        uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.2.0
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
         with:
           key: pdm-test-${{ runner.os }}-${{ hashFiles('pdm.lock') }}
           restore-keys: pdm-test-
@@ -152,7 +152,7 @@ jobs:
           java-version: '21'
 
       - name: Restore Allure CLI cache
-        uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.2.0
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
         with:
           key: allure-2.34.1-${{ runner.os }}
           path: ~/.allure
@@ -232,7 +232,7 @@ jobs:
         uses: ./.github/actions/start-sut
 
       - name: Restore test PDM cache
-        uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.2.0
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
         with:
           key: pdm-test-${{ runner.os }}-${{ hashFiles('pdm.lock') }}
           restore-keys: pdm-test-
@@ -249,7 +249,7 @@ jobs:
         run: pdm install -G dev
 
       - name: Restore Playwright browsers cache
-        uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.2.0
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
         with:
           key: playwright-${{ runner.os }}-${{ matrix.browser }}-${{ hashFiles('pdm.lock') }}
           restore-keys: playwright-${{ runner.os }}-${{ matrix.browser }}-
@@ -267,7 +267,7 @@ jobs:
           java-version: '21'
 
       - name: Restore Allure CLI cache
-        uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.2.0
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
         with:
           key: allure-2.34.1-${{ runner.os }}
           path: ~/.allure
