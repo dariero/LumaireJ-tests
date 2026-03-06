@@ -1,10 +1,13 @@
 # Project Board Configuration
 
-Canonical reference for GitHub Projects V2 infrastructure IDs.
-Referenced by: `start-work`, `complete-issue`, `new-issue`, `pr`, `review-pr` commands.
+Canonical reference for GitHub Projects V2 IDs and reusable board procedures.
+Referenced by: `start-work`, `complete-issue`, `new-issue`, `pr`, `review-pr`.
+
+<meta version="1.1.0" updated="2026-03-06" />
 
 <project_board>
   <project_id>PVT_kwHODR8J4s4A9wbx</project_id>
+  <repo>dariero/lumairej-tests</repo>
   <fields>
     <status>PVTSSF_lAHODR8J4s4A9wbxzgxXTgM</status>
     <priority>PVTSSF_lAHODR8J4s4A9wbxzgxXT_I</priority>
@@ -31,14 +34,123 @@ Referenced by: `start-work`, `complete-issue`, `new-issue`, `pr`, `review-pr` co
   </size_options>
 </project_board>
 
+## Reusable Board Procedures
+
+Commands that perform board operations MUST load this file first, then execute the
+named procedures below. Substitute `<PLACEHOLDER>` values from the calling command's
+context. Stop immediately and report if any step produces an empty result or an error.
+
+---
+
+### Procedure: `get-item-id`
+
+Resolves or creates a board item for a given issue. Stores the result in `$ITEM_ID`.
+Run this before any `update-board-*` procedure.
+
+```bash
+ISSUE_NODE_ID=$(gh issue view "<ISSUE_NUMBER>" --repo dariero/lumairej-tests \
+  --json id --jq '.id')
+
+if [ -z "$ISSUE_NODE_ID" ]; then
+  echo "ERROR: Could not resolve node ID for issue #<ISSUE_NUMBER>. Stopping." && exit 1
+fi
+
+ITEM_ID=$(gh api graphql -f query='
+  mutation($project: ID!, $content: ID!) {
+    addProjectV2ItemById(input: {projectId: $project, contentId: $content}) {
+      item { id }
+    }
+  }' \
+  -f project="PVT_kwHODR8J4s4A9wbx" \
+  -f content="$ISSUE_NODE_ID" \
+  --jq '.data.addProjectV2ItemById.item.id')
+
+if [ -z "$ITEM_ID" ]; then
+  echo "ERROR: Failed to add issue #<ISSUE_NUMBER> to project board. Stopping." && exit 1
+fi
+```
+
+---
+
+### Procedure: `update-board-status`
+
+Updates the Status field. Requires `$ITEM_ID` from `get-item-id`.
+`<STATUS_OPTION_ID>` is the hex option ID from `<status_options>` above.
+
+```bash
+UPDATE_RESULT=$(gh api graphql -f query='
+  mutation($project: ID!, $item: ID!, $field: ID!, $value: String!) {
+    updateProjectV2ItemFieldValue(input: {
+      projectId: $project, itemId: $item, fieldId: $field,
+      value: {singleSelectOptionId: $value}
+    }) { projectV2Item { id } }
+  }' \
+  -f project="PVT_kwHODR8J4s4A9wbx" \
+  -f item="$ITEM_ID" \
+  -f field="PVTSSF_lAHODR8J4s4A9wbxzgxXTgM" \
+  -f value="<STATUS_OPTION_ID>" \
+  --jq '.data.updateProjectV2ItemFieldValue.projectV2Item.id')
+
+if [ -z "$UPDATE_RESULT" ]; then
+  echo "ERROR: Status update failed for item $ITEM_ID."
+  echo "REMEDIATION: Manually set status on https://github.com/users/dariero/projects/1"
+  echo "Stopping — no further automated actions will be taken."
+  exit 1
+fi
+```
+
+---
+
+### Procedure: `update-board-field`
+
+Updates Priority or Size. Requires `$ITEM_ID`.
+`<FIELD_ID>` is the priority or size field ID. `<OPTION_ID>` is the chosen hex value.
+
+```bash
+gh api graphql -f query='
+  mutation($project: ID!, $item: ID!, $field: ID!, $value: String!) {
+    updateProjectV2ItemFieldValue(input: {
+      projectId: $project, itemId: $item, fieldId: $field,
+      value: {singleSelectOptionId: $value}
+    }) { projectV2Item { id } }
+  }' \
+  -f project="PVT_kwHODR8J4s4A9wbx" \
+  -f item="$ITEM_ID" \
+  -f field="<FIELD_ID>" \
+  -f value="<OPTION_ID>"
+```
+
+---
+
+### Procedure: `verify-board-fields`
+
+Reads current Status, Priority, and Size for a board item. Requires `$ITEM_ID`.
+If Priority or Size return null, warn the user and ask them to set values.
+
+```bash
+gh api graphql -f query='
+  query($item: ID!) {
+    node(id: $item) {
+      ... on ProjectV2Item {
+        fieldValueByName(name: "Status")   { ... on ProjectV2ItemFieldSingleSelectValue { name } }
+        fieldValueByName(name: "Priority") { ... on ProjectV2ItemFieldSingleSelectValue { name } }
+        fieldValueByName(name: "Size")     { ... on ProjectV2ItemFieldSingleSelectValue { name } }
+      }
+    }
+  }' -f item="$ITEM_ID"
+```
+
+---
+
 ## Maintenance
 
-When project board fields are reconfigured, update the IDs above and propagate to all referencing command files:
+To update IDs after a project board reconfiguration: edit the `<project_board>` block
+above only. No other command files contain hardcoded board IDs.
 
-| Command | IDs Used |
-|---------|----------|
-| `start-work.md` | In Progress status, Priority, Size |
-| `complete-issue.md` | Done status |
-| `new-issue.md` | Priority, Size |
-| `pr.md` | AI Review status |
-| `review-pr.md` | Approved status |
+| Command          | Status Used  | Fields Used          |
+|------------------|--------------|----------------------|
+| `start-work.md`  | `in_progress`| Priority, Size       |
+| `pr.md`          | `ai_review`  | —                    |
+| `review-pr.md`   | `approved`   | —                    |
+| `complete-issue.md` | `done`    | —                    |
+| `new-issue.md`   | —            | Priority, Size       |

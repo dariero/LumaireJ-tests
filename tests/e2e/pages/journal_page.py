@@ -24,14 +24,17 @@ class JournalPage:
     def open(self) -> None:
         """Navigate to the journaling page."""
         self.page.goto(self.url, wait_until="load")
-        # Verify page loaded by checking form is present
         expect(self.page.locator(self.CONTENT)).to_be_visible(timeout=DEFAULT_TIMEOUT_MS)
 
     def fill(self, content: str, mood: str = "") -> None:
         """Fill out the journaling form."""
-        self.page.locator(self.CONTENT).fill(content)
+        content_locator = self.page.locator(self.CONTENT)
+        expect(content_locator).to_be_enabled(timeout=DEFAULT_TIMEOUT_MS)
+        content_locator.fill(content)
         if mood:
-            self.page.locator(self.MOOD).fill(mood)
+            mood_locator = self.page.locator(self.MOOD)
+            expect(mood_locator).to_be_enabled(timeout=DEFAULT_TIMEOUT_MS)
+            mood_locator.fill(mood)
 
     def submit(self) -> None:
         """Submit the journaling form."""
@@ -43,26 +46,27 @@ class JournalPage:
         expect(locator).to_contain_text("Saved", timeout=DEFAULT_TIMEOUT_MS)
 
     def get_response_text(self) -> str:
-        """Get the text from the response element."""
-        response_locator = self.page.locator(self.RESPONSE)
+        """Get the text from the response element.
 
-        response_locator.wait_for(state="visible", timeout=DEFAULT_TIMEOUT_MS)
-
-        text = response_locator.text_content() or ""
-        return text
-
-    def is_response_visible(self, timeout: int = 1000) -> bool:
-        """Check if a response element is visible.
-
-        Args:
-            timeout: Maximum time to wait in milliseconds (default: 1000ms)
-
-        Returns:
-            bool: True if visible, False otherwise
+        Waits for the element to be visible before reading, then returns its
+        inner text. Uses inner_text() which reflects rendered CSS visibility,
+        unlike text_content() which reads the DOM regardless of display state.
         """
         response_locator = self.page.locator(self.RESPONSE)
+        expect(response_locator).to_be_visible(timeout=DEFAULT_TIMEOUT_MS)
+        return response_locator.inner_text()
+
+    def is_response_visible(self, timeout: int = 1000) -> bool:
+        """Check if the response element is visible within the given timeout.
+
+        Args:
+            timeout: Maximum time to wait in milliseconds (default: 1000ms).
+
+        Returns:
+            True if visible within timeout, False otherwise.
+        """
         try:
-            response_locator.wait_for(state="visible", timeout=timeout)
+            expect(self.page.locator(self.RESPONSE)).to_be_visible(timeout=timeout)
             return True
-        except Exception:
+        except AssertionError:
             return False

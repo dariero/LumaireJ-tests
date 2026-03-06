@@ -1,160 +1,160 @@
 # Create Pull Request
 
-Create a pull request with test report summary.
+Create a pull request with a live test report summary.
+
+<meta version="1.1.0" updated="2026-03-06" />
 
 <variables>
   <additional_context>$ARGUMENTS</additional_context>
 </variables>
 
 <constraints>
-- MUST verify the current branch is NOT `main`. If on `main`, stop and report: "Cannot create a PR from the main branch."
-- MUST run lint and tests before creating the PR. Do NOT create a PR if tests or linting fail.
-- MUST check if a PR already exists for this branch. If one exists, report the existing PR URL and stop.
-- MUST match the branch prefix to the PR type table. If the prefix is not recognized, ask the user which PR type to use — do NOT guess.
-- MUST ask user for confirmation before running `git push`.
-- MUST NOT proceed if any GraphQL mutation fails — report the error and stop.
+- MUST verify the current branch is NOT `main`. If on `main`, stop immediately.
+- MUST check for an existing PR before running tests. If one exists, report its URL and stop.
+- MUST run lint and tests exactly once before creating the PR. Do NOT create a PR if either fails.
+- MUST parse actual test output to populate the PR test report — never hardcode counts.
+- MUST match the branch prefix to the PR type table. If unrecognized, ask the user — do NOT guess.
+- MUST ask the user for confirmation before running `git push`.
+- MUST NOT proceed if any GraphQL mutation fails — report with manual remediation steps and stop.
+- Load `.claude/commands/_project-board.md` before executing any board operation.
 </constraints>
 
-<!-- Project board IDs: see _project-board.md for canonical reference -->
-<project_board_ids>
-  <project_id>PVT_kwHODR8J4s4A9wbx</project_id>
-  <status_field>PVTSSF_lAHODR8J4s4A9wbxzgxXTgM</status_field>
-  <ai_review_status>61e4505c</ai_review_status>
-</project_board_ids>
+<!-- Board status used: ai_review = 61e4505c. All other IDs from _project-board.md -->
+
+## Branch Prefix → PR Type
+
+| Branch Prefix | PR Type    |
+|---------------|------------|
+| `test/`       | `TEST`     |
+| `fix/`        | `FIX`      |
+| `infra/`      | `INFRA`    |
+| `refactor/`   | `REFACTOR` |
+
+If the prefix is unrecognized, ask the user which PR type to use.
 
 ## Instructions
 
-1. **Validate branch**: Verify the current branch is not `main`:
+1. **Validate branch**:
    ```bash
    git branch --show-current
    ```
-   If on `main`, stop and report: "Cannot create a PR from the main branch. Switch to a feature branch first."
+   If on `main`, stop: "Cannot create a PR from the main branch. Switch to a feature branch first."
 
-2. **Check for existing PR**:
+2. **Check for an existing PR**:
    ```bash
-   gh pr list --repo dariero/lumairej-tests --head $(git branch --show-current) --json number,url --jq '.[0]'
+   gh pr list --repo dariero/lumairej-tests \
+     --head "$(git branch --show-current)" \
+     --json number,url --jq '.[0]'
    ```
-   If a PR already exists, report: "PR already exists: <url>" and stop.
+   If a PR exists, report: "PR already exists: <url>" and stop.
 
-3. **Run code quality checks** before creating PR:
+3. **Run quality gate** (single invocation — output captured for metrics):
    ```bash
    pdm run lint
-   pdm run pytest -v --tb=short
    ```
-   If lint or tests fail, report failures and do NOT proceed.
+   If lint fails, report errors and do NOT proceed.
 
-4. **Collect test metrics**:
    ```bash
-   pdm run pytest --collect-only -q 2>/dev/null | tail -1
-   pdm run pytest -v --tb=no 2>&1 | grep -E "passed|failed|skipped|error"
+   TEST_OUTPUT=$(pdm run pytest --override-ini="addopts=" -v --tb=short 2>&1)
+   echo "$TEST_OUTPUT"
+   ```
+   If tests fail, report each failure with file:line and do NOT proceed.
+
+4. **Parse test metrics** from captured output:
+   ```bash
+   PASSED=$(echo "$TEST_OUTPUT" | python3 -c "
+   import sys, re; t=sys.stdin.read()
+   m=re.search(r'(\d+) passed', t); print(m.group(1) if m else '0')")
+
+   FAILED=$(echo "$TEST_OUTPUT" | python3 -c "
+   import sys, re; t=sys.stdin.read()
+   m=re.search(r'(\d+) failed', t); print(m.group(1) if m else '0')")
+
+   SKIPPED=$(echo "$TEST_OUTPUT" | python3 -c "
+   import sys, re; t=sys.stdin.read()
+   m=re.search(r'(\d+) skipped', t); print(m.group(1) if m else '0')")
+
+   TOTAL=$(( PASSED + FAILED + SKIPPED ))
    ```
 
-5. **Get branch and issue info**:
+5. **Gather branch and commit info**:
    ```bash
-   git branch --show-current
+   BRANCH=$(git branch --show-current)
    git log main..HEAD --oneline
    git diff main...HEAD --stat
    ```
 
-6. **Extract issue number** from branch name (e.g., `test/42-description` -> `42`).
-   If no issue number is found, ask the user for it.
+6. **Extract issue number** from branch name (e.g., `test/42-desc` → `42`).
+   If none found, ask the user for it.
 
-7. **Determine PR type** from branch prefix:
+7. **Determine PR type** from branch prefix using the table above.
 
-   | Branch Prefix | PR Type |
-   |---------------|---------|
-   | `test/` | `TEST` |
-   | `fix/` | `FIX` |
-   | `infra/` | `INFRA` |
-   | `refactor/` | `REFACTOR` |
-
-   If the branch prefix does not match any row, ask the user: "Branch prefix '<prefix>' is not recognized. Which PR type should I use?" and present the options.
-
-8. **Get labels from linked issue**:
+8. **Fetch labels from the linked issue**:
    ```bash
-   LABELS=$(gh issue view <issue-number> --repo dariero/lumairej-tests \
+   LABELS=$(gh issue view "<issue-number>" --repo dariero/lumairej-tests \
      --json labels --jq '[.labels[].name] | join(",")')
    ```
 
 9. **Push branch** (requires user confirmation):
-   Ask the user: "Ready to push branch '<branch-name>' to remote?"
-   Only push if the user confirms:
+   Ask: "Ready to push branch '<branch>' to remote?"
+   Only if confirmed:
    ```bash
-   git push -u origin <branch-name>
+   git push -u origin "$BRANCH"
    ```
 
-10. **Create PR** with test report format and inherited labels:
+10. **Create PR** with live metrics:
     ```bash
     gh pr create --repo dariero/lumairej-tests \
-      --title "[TYPE #issue] Description" \
+      --title "[<TYPE> #<issue>] <description>" \
       --label "$LABELS" \
+      --assignee dariero \
       --body "## Summary
-    - Change 1
-    - Change 2
+    $ARGUMENTS
 
     ## Test Report
 
-    | Metric | Count |
-    |--------|-------|
-    | Total Tests | X |
-    | Passed | X |
-    | Failed | 0 |
-    | Skipped | X |
+    | Metric      | Count   |
+    |-------------|---------|
+    | Total Tests | $TOTAL  |
+    | Passed      | $PASSED |
+    | Failed      | $FAILED |
+    | Skipped     | $SKIPPED|
 
-    ### Tests Added/Modified
-    - \`test_example_scenario\` - Description
-    - \`test_another_case\` - Description
+    ### Tests Added / Modified
+    [List specific test functions changed in this PR]
 
     ## Test Plan
-    - [ ] All tests pass locally (\`pdm run test\`)
+    - [ ] All tests pass locally (\`pdm run pytest\`)
     - [ ] Linting passes (\`pdm run lint\`)
     - [ ] New tests have appropriate markers
     - [ ] Page Objects follow POM pattern (E2E)
     - [ ] Fixtures properly scoped
 
-    Closes #<issue-number>" \
-      --assignee dariero
+    Closes #<issue-number>"
     ```
+    Capture the PR URL.
 
-11. **Move issue to AI Review** on the project board (preserves Priority/Size):
+11. **Move issue to AI Review on the project board**:
+    Load `.claude/commands/_project-board.md` and execute:
+    - `get-item-id` with the linked issue number
+    - `update-board-status` with `STATUS_OPTION_ID` = `61e4505c` (AI Review)
+    - `verify-board-fields` — if Priority or Size are null, warn the user
+
+    If any mutation fails:
+    > "ERROR: Board update failed. REMEDIATION: Manually move issue #<N> to 'AI Review'
+    > at https://github.com/users/dariero/projects/1."
+
+12. **Add the PR itself to the project board**:
     ```bash
-    ISSUE_NODE_ID=$(gh issue view <issue-number> --repo dariero/lumairej-tests --json id --jq '.id')
-
-    ITEM_ID=$(gh api graphql -f query='
-      mutation($project: ID!, $content: ID!) {
-        addProjectV2ItemById(input: {projectId: $project, contentId: $content}) {
-          item { id }
-        }
-      }' -f project="PVT_kwHODR8J4s4A9wbx" -f content="$ISSUE_NODE_ID" --jq '.data.addProjectV2ItemById.item.id')
-
-    # Update Status only - Priority and Size are preserved
-    gh api graphql -f query='
-      mutation($project: ID!, $item: ID!, $field: ID!, $value: String!) {
-        updateProjectV2ItemFieldValue(input: {projectId: $project, itemId: $item, fieldId: $field, value: {singleSelectOptionId: $value}}) {
-          projectV2Item { id }
-        }
-      }' -f project="PVT_kwHODR8J4s4A9wbx" -f item="$ITEM_ID" -f field="PVTSSF_lAHODR8J4s4A9wbxzgxXTgM" -f value="61e4505c"
-
-    # Verify Priority and Size are still set
-    gh api graphql -f query='
-      query($item: ID!) {
-        node(id: $item) {
-          ... on ProjectV2Item {
-            fieldValueByName(name: "Priority") { ... on ProjectV2ItemFieldSingleSelectValue { name } }
-            fieldValueByName(name: "Size") { ... on ProjectV2ItemFieldSingleSelectValue { name } }
-          }
-        }
-      }' -f item="$ITEM_ID"
-    ```
-    If any GraphQL mutation fails, report the error to the user and stop.
-    If Priority or Size are null, warn the user to set them via the project board.
-
-12. **Add PR to project board**:
-    ```bash
-    gh project item-add 1 --owner dariero --url <pr-url>
+    gh project item-add 1 --owner dariero --url "<pr-url>"
     ```
 
-13. **Report PR URL** to user.
+13. **Report PR URL** and summary to the user.
+
+<eval_output>
+At completion, output a one-line structured summary:
+`PR: #<N> type=<TYPE> issue=#<issue> tests=<PASSED>p/<FAILED>f/<SKIPPED>s board=<AI Review|FAILED> url=<url>`
+</eval_output>
 
 ## Additional Context
 $ARGUMENTS
