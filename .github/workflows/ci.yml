@@ -98,7 +98,7 @@ jobs:
             mkdir -p $HOME/.allure
             wget -q https://github.com/allure-framework/allure2/releases/download/2.34.1/allure-2.34.1.tgz -O allure.tgz
             # Verify checksum (SHA-256 for Allure 2.34.1)
-            echo "b8e24f26224a1a7883e778502e5c5235a98b1a52d38e7e0099309f3f4f835c6e  allure.tgz" | sha256sum --check --strict
+            echo "df13c5883429edd5041a24d6d072a8944e65274d1d76a441fd45d2585511349a  allure.tgz" | sha256sum --check --strict
             tar -xzf allure.tgz -C $HOME/.allure
             rm allure.tgz
           fi
