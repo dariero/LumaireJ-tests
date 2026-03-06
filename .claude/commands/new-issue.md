@@ -2,168 +2,181 @@
 
 Create a new GitHub issue for test automation tasks.
 
+<meta version="1.1.0" updated="2026-03-06" />
+
 <variables>
   <issue_description>$ARGUMENTS</issue_description>
 </variables>
 
 <constraints>
 - MUST validate that $ARGUMENTS is non-empty. If empty, ask: "What issue should I create? Provide a title or description."
-- MUST select the issue type from the table below based on the request. If the request does not clearly match a type, ask the user to clarify.
-- MUST NOT create an issue without labels.
-- MUST NOT proceed if any GraphQL mutation fails — report the error and stop.
+- MUST select the issue type from the table below. If the request does not clearly match a type, ask the user to clarify.
+- MUST NOT create an issue without at least one label.
+- MUST NOT proceed if any GraphQL mutation fails — report the error with manual remediation steps and stop.
 - MUST ask the user to confirm Priority and Size before setting them.
+- Load `.claude/commands/_project-board.md` before executing any board operation.
 </constraints>
 
-<!-- Project board IDs: see _project-board.md for canonical reference -->
-<project_board_ids>
-  <project_id>PVT_kwHODR8J4s4A9wbx</project_id>
-  <priority_field>PVTSSF_lAHODR8J4s4A9wbxzgxXT_I</priority_field>
-  <size_field>PVTSSF_lAHODR8J4s4A9wbxzgxXT_M</size_field>
-  <priority_options>Critical: 79628723 | High: 0a877460 | Medium: da944a9c | Low: 56c1c445</priority_options>
-  <size_options>XS: 6c6483d2 | S: f784b110 | M: 7515a9f1 | L: 817d0097 | XL: db339eb2</size_options>
-</project_board_ids>
+<!-- Board field IDs: priority=PVTSSF_lAHODR8J4s4A9wbxzgxXT_I, size=PVTSSF_lAHODR8J4s4A9wbxzgxXT_M -->
+<!-- All option IDs from _project-board.md -->
 
 ## Instructions
 
-1. **Validate input**: If `$ARGUMENTS` is empty, ask the user: "What issue should I create? Provide a title or description."
+1. **Validate input**: If `$ARGUMENTS` is empty, ask: "What issue should I create? Provide a title or description."
 
-2. **Determine issue type** by analyzing the request:
+2. **Determine issue type** from the request:
 
-   | Type | Description | Title Prefix |
-   |------|-------------|--------------|
-   | `[TEST]` | New test scenario or coverage | New test case |
-   | `[BUG]` | Test framework bug or flaky test | Test bug/flakiness |
-   | `[INFRA]` | CI/CD, tooling, dependencies | Infrastructure |
-   | `[REFACTOR]` | Test code improvement | Code quality |
+   | Type         | Use When                                  | Title Prefix  |
+   |--------------|-------------------------------------------|---------------|
+   | `[TEST]`     | New test scenario or coverage             | New test case |
+   | `[BUG]`      | Test framework bug or flaky test          | Test bug      |
+   | `[INFRA]`    | CI/CD, tooling, dependencies              | Infrastructure|
+   | `[REFACTOR]` | Test code quality improvement             | Code quality  |
 
-   If the request does not clearly match a type, ask the user: "Which issue type best fits this request?" and present the options.
+   If the request does not clearly match, ask: "Which issue type fits this request?" and present the table.
 
-3. **Select appropriate template** based on type:
+3. **Select the template** for the matched type:
 
-   **For `[TEST]` - Test Scenario:**
+   **`[TEST]` — Test Scenario:**
    ```markdown
    ## Test Scenario
    **Feature:** [Feature being tested]
    **Type:** API / E2E / Both
 
    ## Test Cases
-   - [ ] Test case 1: [Description]
-   - [ ] Test case 2: [Description]
+   - [ ] [Describe test case 1]
+   - [ ] [Describe test case 2]
 
    ## Acceptance Criteria
-   - [ ] Tests pass locally
+   - [ ] Tests pass locally (`pdm run pytest`)
    - [ ] Tests pass in CI
-   - [ ] Appropriate markers applied (@pytest.mark.api/e2e/smoke/regression)
+   - [ ] Appropriate markers applied (`@pytest.mark.api` / `@pytest.mark.e2e`)
+   - [ ] No hardcoded waits (`time.sleep` / `wait_for_timeout`)
 
    ## Test Data Requirements
-   - [Data needed for tests]
+   [List data, fixtures, or environment prerequisites]
    ```
 
-   **For `[BUG]` - Bug Report:**
+   **`[BUG]` — Bug Report:**
    ```markdown
    ## Bug Description
-   [What's happening]
+   [What is happening]
 
    ## Expected Behavior
    [What should happen]
 
    ## Steps to Reproduce
-   1. Run: `pdm run pytest -m <marker> -v`
+   1. Run: `pdm run pytest [path/marker] -v`
    2. Observe: [failure description]
 
    ## Environment
    - Python: 3.14
-   - OS: [local/CI]
-   - Flaky: Yes/No (if yes, frequency)
+   - OS: [local / CI]
+   - Flaky: Yes / No (if yes, approximate frequency)
 
-   ## Logs/Screenshots
-   [Attach relevant output]
+   ## Logs / Output
+   [Paste relevant pytest output or traceback]
    ```
 
-4. **Determine labels** based on issue type and content:
+   **`[INFRA]` — Infrastructure:**
+   ```markdown
+   ## Summary
+   [What needs to change and why]
 
-   | Issue Type | Labels to Apply |
-   |------------|-----------------|
-   | `[TEST]` + API tests | `API` |
-   | `[TEST]` + E2E tests | `E2E` |
-   | `[TEST]` + both | `API`, `E2E` |
-   | `[BUG]` + flaky test | `E2E` or `API` (based on test type) |
-   | `[INFRA]` | `infra` |
-   | `[REFACTOR]` | `infra` (if CI/tooling) or test type labels |
+   ## Affected Components
+   - [ ] CI/CD pipeline (`.github/workflows/`)
+   - [ ] Dependency / tooling (`pyproject.toml`, `pdm.lock`)
+   - [ ] Pre-commit hooks (`.pre-commit-config.yaml`)
+   - [ ] Environment configuration (`.env`, `constants.py`)
 
-5. **Create the issue with labels**:
+   ## Acceptance Criteria
+   - [ ] CI pipeline passes on all branches
+   - [ ] No regressions in existing tests
+   - [ ] Documentation updated if behaviour changes
+
+   ## Notes
+   [Migration steps, breaking changes, rollback plan]
+   ```
+
+   **`[REFACTOR]` — Refactor:**
+   ```markdown
+   ## Summary
+   [What code is being improved and why]
+
+   ## Scope
+   - Files affected: [list]
+   - Pattern being removed: [e.g., hardcoded waits, duplicated fixtures]
+   - Pattern being introduced: [e.g., shared fixtures, constants]
+
+   ## Acceptance Criteria
+   - [ ] All existing tests still pass after refactor
+   - [ ] No new test logic introduced (pure structural change)
+   - [ ] Ruff lint passes
+
+   ## Notes
+   [Any risks or edge cases to consider]
+   ```
+
+4. **Determine labels** from type and content:
+
+   | Issue Type       | Labels              |
+   |------------------|---------------------|
+   | `[TEST]` + API   | `API`               |
+   | `[TEST]` + E2E   | `E2E`               |
+   | `[TEST]` + both  | `API`, `E2E`        |
+   | `[BUG]`          | `API` or `E2E` (match test type) |
+   | `[INFRA]`        | `infra`             |
+   | `[REFACTOR]`     | `infra` (tooling) or test-type labels |
+
+5. **Create the issue**:
    ```bash
    gh issue create --repo dariero/lumairej-tests \
-     --title "[TYPE] Description" \
-     --body "<template content>" \
-     --label "<labels>" \
+     --title "[TYPE] <description from $ARGUMENTS>" \
+     --body "<filled template from step 3>" \
+     --label "<labels from step 4>" \
      --assignee dariero
    ```
+   Capture the returned issue URL and number.
 
-   Examples:
-   - `--label "infra"` for infrastructure issues
-   - `--label "E2E"` for E2E test issues
-   - `--label "API"` for API test issues
-   - `--label "E2E,infra"` for E2E infrastructure issues
-
-6. **Ask the user to confirm Priority and Size**:
+6. **Confirm Priority and Size** with the user:
 
    | Priority | When to Use |
    |----------|-------------|
-   | Critical | Blocking issue, CI broken, tests failing in prod |
-   | High | Important feature, significant flakiness |
-   | Medium | Normal priority work (default) |
-   | Low | Nice-to-have, minor improvements |
+   | Critical | Blocking — CI broken or tests failing |
+   | High     | Important feature or significant flakiness |
+   | Medium   | Normal priority work (default) |
+   | Low      | Nice-to-have, minor improvement |
 
    | Size | Effort |
    |------|--------|
-   | XS | < 1 hour, trivial fix |
-   | S | 1-2 hours, small change |
-   | M | Half day, moderate scope (default) |
-   | L | Full day, significant work |
-   | XL | Multi-day, large feature |
+   | XS   | < 1 hour |
+   | S    | 1–2 hours |
+   | M    | Half day (default) |
+   | L    | Full day |
+   | XL   | Multi-day |
 
-7. **Add to project board and set fields**:
-   ```bash
-   # Add issue to project
-   ISSUE_URL=<issue-url>
-   gh project item-add 1 --owner dariero --url $ISSUE_URL
+   Ask: "Priority and Size for issue #<N>? (Priority: Critical/High/Medium/Low, Size: XS/S/M/L/XL)"
 
-   # Get issue and item IDs for field updates
-   ISSUE_NUMBER=<issue-number>
-   ISSUE_NODE_ID=$(gh issue view $ISSUE_NUMBER --repo dariero/lumairej-tests --json id --jq '.id')
+7. **Set board fields**: Load `.claude/commands/_project-board.md` and execute:
+   - `get-item-id` with the new issue number
+   - `update-board-field` with `FIELD_ID` = `PVTSSF_lAHODR8J4s4A9wbxzgxXT_I` and the chosen Priority option ID
+   - `update-board-field` with `FIELD_ID` = `PVTSSF_lAHODR8J4s4A9wbxzgxXT_M` and the chosen Size option ID
+   - `verify-board-fields` to confirm both are set
 
-   ITEM_ID=$(gh api graphql -f query='
-     mutation($project: ID!, $content: ID!) {
-       addProjectV2ItemById(input: {projectId: $project, contentId: $content}) {
-         item { id }
-       }
-     }' -f project="PVT_kwHODR8J4s4A9wbx" -f content="$ISSUE_NODE_ID" --jq '.data.addProjectV2ItemById.item.id')
+   If any mutation fails, report:
+   > "ERROR: Board field update failed. REMEDIATION: Manually set Priority/Size at
+   > https://github.com/users/dariero/projects/1 for issue #<N>."
 
-   # Set Priority (use option ID from user's selection)
-   # Critical: 79628723 | High: 0a877460 | Medium: da944a9c | Low: 56c1c445
-   gh api graphql -f query='
-     mutation($project: ID!, $item: ID!, $field: ID!, $value: String!) {
-       updateProjectV2ItemFieldValue(input: {projectId: $project, itemId: $item, fieldId: $field, value: {singleSelectOptionId: $value}}) {
-         projectV2Item { id }
-       }
-     }' -f project="PVT_kwHODR8J4s4A9wbx" -f item="$ITEM_ID" -f field="PVTSSF_lAHODR8J4s4A9wbxzgxXT_I" -f value="<priority-option-id>"
-
-   # Set Size (use option ID from user's selection)
-   # XS: 6c6483d2 | S: f784b110 | M: 7515a9f1 | L: 817d0097 | XL: db339eb2
-   gh api graphql -f query='
-     mutation($project: ID!, $item: ID!, $field: ID!, $value: String!) {
-       updateProjectV2ItemFieldValue(input: {projectId: $project, itemId: $item, fieldId: $field, value: {singleSelectOptionId: $value}}) {
-         projectV2Item { id }
-       }
-     }' -f project="PVT_kwHODR8J4s4A9wbx" -f item="$ITEM_ID" -f field="PVTSSF_lAHODR8J4s4A9wbxzgxXT_M" -f value="<size-option-id>"
-   ```
-   If any GraphQL mutation returns an error, report the error to the user and stop.
-
-8. **Report the issue** to the user with:
+8. **Report** to user:
    - Issue number and URL
-   - Priority and Size assigned
-   - Labels applied
+   - Type, labels applied
+   - Priority and Size set
+   - Next step: `/start-work <issue-number>`
+
+<eval_output>
+At completion, output a one-line structured summary:
+`NEW-ISSUE: #<N> type=<TYPE> labels=<labels> priority=<P> size=<S> url=<url>`
+</eval_output>
 
 ## User Request
 $ARGUMENTS

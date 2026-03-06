@@ -1,112 +1,94 @@
 # Complete Issue
 
-Clean up local environment after PR is merged.
+Clean up local environment after a PR is merged.
+
+<meta version="1.1.0" updated="2026-03-06" />
 
 <variables>
   <issue_number>$ARGUMENTS</issue_number>
 </variables>
 
 <constraints>
-- MUST validate that $ARGUMENTS is a non-empty numeric value. If empty, ask: "Which issue number should I complete?"
-- MUST verify the PR is actually merged before proceeding with cleanup.
+- MUST validate that $ARGUMENTS is a non-empty integer. If empty or non-numeric, ask: "Which issue number should I complete?"
+- MUST verify the PR is actually merged before any cleanup. If no merged PR is found, stop.
 - MUST NOT run `git branch -D` without explicit user confirmation. Always try `git branch -d` first.
-- MUST NOT proceed if any GraphQL mutation fails — report the error and stop.
-- If the issue does not exist or is not found, report the error and stop.
+- MUST NOT proceed if any board mutation fails — report the inconsistent state with manual remediation steps and stop.
+- If the issue does not exist, report the error and stop.
+- Load `.claude/commands/_project-board.md` before executing any board operation.
 </constraints>
 
-<!-- Project board IDs: see _project-board.md for canonical reference -->
-<project_board_ids>
-  <project_id>PVT_kwHODR8J4s4A9wbx</project_id>
-  <status_field>PVTSSF_lAHODR8J4s4A9wbxzgxXTgM</status_field>
-  <done_status>caff0873</done_status>
-</project_board_ids>
+<!-- Board status used: done = caff0873. All other IDs from _project-board.md -->
 
 ## Instructions
 
-1. **Validate input**: If `$ARGUMENTS` is empty or non-numeric, ask the user: "Which issue number should I complete?"
+1. **Validate input**: Confirm `$ARGUMENTS` is a non-empty integer.
+   If not, ask: "Which issue number should I complete?"
 
 2. **Verify PR is merged**:
    ```bash
-   gh issue view $ARGUMENTS --repo dariero/lumairej-tests
-   gh pr list --repo dariero/lumairej-tests --state merged --search "$ARGUMENTS"
+   gh issue view "$ARGUMENTS" --repo dariero/lumairej-tests
+   gh pr list --repo dariero/lumairej-tests --state merged --search "#$ARGUMENTS" --json number,url,mergedAt
    ```
-   If no merged PR is found, report: "No merged PR found for issue #$ARGUMENTS. Verify the PR was merged before running this command." and stop.
+   If no merged PR is found, stop:
+   > "No merged PR found for issue #$ARGUMENTS. Verify the PR was merged before running this command."
 
-3. **Switch to main branch**:
+3. **Switch to main and pull latest**:
    ```bash
    git checkout main
-   ```
-
-4. **Pull latest changes**:
-   ```bash
    git pull origin main
    ```
 
-5. **Delete local feature branch**:
+4. **Identify and delete the local feature branch**:
+   ```bash
+   git branch --list "*/$ARGUMENTS-*"
+   ```
+   If found, try safe delete first:
    ```bash
    git branch -d <branch-name>
    ```
-   If this fails because the branch is not fully merged, ask the user: "Branch '<branch-name>' is not fully merged. Force-delete with `git branch -D`?"
+   If this fails because the branch is unmerged locally (rare after a squash merge), ask:
+   > "Branch '<branch-name>' is not fully merged locally. Force-delete with `git branch -D`?"
    Only run `git branch -D` if the user confirms.
 
-6. **Verify remote branch is deleted** (should be auto-deleted by merge):
+5. **Prune stale remote refs**:
    ```bash
    git remote prune origin
-   git branch -r
+   git branch -r | grep "$ARGUMENTS"
    ```
 
-7. **Move issue to Done** on the project board (preserves Priority/Size):
+6. **Move issue to Done on the project board**:
+   Load `.claude/commands/_project-board.md` and execute procedures in order:
+   - `get-item-id` with issue number = `$ARGUMENTS`
+   - `update-board-status` with `STATUS_OPTION_ID` = `caff0873` (Done)
+   - `verify-board-fields` — confirm Status=Done, and that Priority/Size are still set
+
+   If any mutation fails:
+   > "ERROR: Board update failed. REMEDIATION: Manually move issue #$ARGUMENTS to Done at
+   > https://github.com/users/dariero/projects/1. Local cleanup is complete."
+   Stop — do not close the issue automatically.
+
+7. **Close the issue** (idempotent — safe to run even if already closed):
    ```bash
-   ISSUE_NODE_ID=$(gh issue view $ARGUMENTS --repo dariero/lumairej-tests --json id --jq '.id')
-
-   ITEM_ID=$(gh api graphql -f query='
-     mutation($project: ID!, $content: ID!) {
-       addProjectV2ItemById(input: {projectId: $project, contentId: $content}) {
-         item { id }
-       }
-     }' -f project="PVT_kwHODR8J4s4A9wbx" -f content="$ISSUE_NODE_ID" --jq '.data.addProjectV2ItemById.item.id')
-
-   # Update Status only - Priority and Size are preserved
-   gh api graphql -f query='
-     mutation($project: ID!, $item: ID!, $field: ID!, $value: String!) {
-       updateProjectV2ItemFieldValue(input: {projectId: $project, itemId: $item, fieldId: $field, value: {singleSelectOptionId: $value}}) {
-         projectV2Item { id }
-       }
-     }' -f project="PVT_kwHODR8J4s4A9wbx" -f item="$ITEM_ID" -f field="PVTSSF_lAHODR8J4s4A9wbxzgxXTgM" -f value="caff0873"
+   gh issue close "$ARGUMENTS" --repo dariero/lumairej-tests
    ```
-   If any GraphQL mutation returns an error, report the error to the user and stop.
 
+8. **Run smoke tests** to verify main is healthy:
    ```bash
-   # Verify final state includes Priority and Size
-   gh api graphql -f query='
-     query($item: ID!) {
-       node(id: $item) {
-         ... on ProjectV2Item {
-           fieldValueByName(name: "Status") { ... on ProjectV2ItemFieldSingleSelectValue { name } }
-           fieldValueByName(name: "Priority") { ... on ProjectV2ItemFieldSingleSelectValue { name } }
-           fieldValueByName(name: "Size") { ... on ProjectV2ItemFieldSingleSelectValue { name } }
-         }
-       }
-     }' -f item="$ITEM_ID"
+   pdm run pytest --override-ini="addopts=" -m smoke -v --tb=short
    ```
 
-8. **Close the issue** (if not auto-closed by PR merge):
-   ```bash
-   gh issue close $ARGUMENTS --repo dariero/lumairej-tests
-   ```
+9. **Report completion**:
+   - Issue #N closed and moved to Done
+   - Priority and Size preserved on project board
+   - Local branch deleted
+   - Main updated
+   - Smoke tests: PASS/FAIL
+   - Next step: `/start-work <next-issue-number>`
 
-9. **Run smoke tests** to verify everything still works:
-   ```bash
-   pdm run pytest -m smoke -v
-   ```
-
-10. **Confirm cleanup complete** and report:
-    - Issue closed and moved to Done
-    - Priority and Size preserved on project board
-    - Local branch deleted
-    - Main branch updated with merged changes
-    - Smoke tests pass
-    - Ready to start next issue with `/start-work`
+<eval_output>
+At completion, output a one-line structured summary:
+`COMPLETE: issue=#<N> branch=<deleted|not-found> board=<Done|FAILED> smoke=<PASS|FAIL>`
+</eval_output>
 
 ## Issue Number
 $ARGUMENTS

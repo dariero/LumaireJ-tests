@@ -2,134 +2,106 @@
 
 Create a branch and begin work on a GitHub issue.
 
+<meta version="1.1.0" updated="2026-03-06" />
+
 <variables>
   <issue_number>$ARGUMENTS</issue_number>
 </variables>
 
 <constraints>
-- MUST validate that $ARGUMENTS is a non-empty numeric value. If empty, ask: "Which issue number should I work on?"
-- MUST check for uncommitted changes before switching branches. If the working tree is dirty, ask the user whether to stash, commit, or abort.
+- MUST validate that $ARGUMENTS is a non-empty integer. If empty or non-numeric, ask: "Which issue number should I work on?"
+- MUST check for uncommitted changes before switching branches. If the working tree is dirty, ask: "You have uncommitted changes. Stash, commit, or abort?"
 - MUST NOT create a branch if one with the same name already exists. If it exists, ask: "Branch '<name>' already exists. Switch to it instead?"
-- MUST match the issue title prefix to the branch prefix table. If the prefix is not recognized, ask the user which branch prefix to use — do NOT guess.
-- MUST NOT proceed if any GraphQL mutation fails — report the error and stop.
+- MUST match the issue title prefix to the branch prefix table below. If unrecognized, ask the user — do NOT guess.
+- MUST NOT proceed if any GraphQL mutation fails — report with manual remediation steps and stop.
 - If the issue does not exist, report the error and stop.
+- Load `.claude/commands/_project-board.md` before executing any board operation.
 </constraints>
 
-<!-- Project board IDs: see _project-board.md for canonical reference -->
-<project_board_ids>
-  <project_id>PVT_kwHODR8J4s4A9wbx</project_id>
-  <status_field>PVTSSF_lAHODR8J4s4A9wbxzgxXTgM</status_field>
-  <in_progress_status>47fc9ee4</in_progress_status>
-  <priority_field>PVTSSF_lAHODR8J4s4A9wbxzgxXT_I</priority_field>
-  <size_field>PVTSSF_lAHODR8J4s4A9wbxzgxXT_M</size_field>
-  <priority_options>Critical: 79628723 | High: 0a877460 | Medium: da944a9c | Low: 56c1c445</priority_options>
-  <size_options>XS: 6c6483d2 | S: f784b110 | M: 7515a9f1 | L: 817d0097 | XL: db339eb2</size_options>
-</project_board_ids>
+<!-- Board status used: in_progress = 47fc9ee4. Field IDs from _project-board.md -->
+
+## Issue Type → Branch Prefix
+
+| Issue Title Prefix | Branch Prefix |
+|--------------------|---------------|
+| `[TEST]`           | `test/`       |
+| `[BUG]`            | `fix/`        |
+| `[INFRA]`          | `infra/`      |
+| `[REFACTOR]`       | `refactor/`   |
+
+If the issue title does not match, ask: "Issue type is unclear. Which branch prefix should I use?"
+and present the table.
 
 ## Instructions
 
-1. **Validate input**: If `$ARGUMENTS` is empty or non-numeric, ask the user: "Which issue number should I work on?"
+1. **Validate input**: Confirm `$ARGUMENTS` is a non-empty integer.
+   If not, ask: "Which issue number should I work on?"
 
 2. **Check for uncommitted changes**:
    ```bash
    git status --porcelain
    ```
-   If output is non-empty, ask the user: "You have uncommitted changes. Stash them, commit them, or abort?"
+   If output is non-empty, ask: "You have uncommitted changes. Stash them, commit them, or abort?"
    Handle accordingly before proceeding.
 
 3. **Fetch issue details**:
    ```bash
-   gh issue view $ARGUMENTS --repo dariero/lumairej-tests
+   gh issue view "$ARGUMENTS" --repo dariero/lumairej-tests
    ```
    If the issue does not exist, report the error and stop.
 
-4. **Determine branch prefix** from issue title:
-
-   | Issue Type | Branch Prefix |
-   |------------|---------------|
-   | `[TEST]` | `test/` |
-   | `[BUG]` | `fix/` |
-   | `[INFRA]` | `infra/` |
-   | `[REFACTOR]` | `refactor/` |
-
-   If the issue title does not match any prefix, ask the user: "Issue title doesn't match a known type. Which branch prefix should I use?" and present the options.
+4. **Determine branch prefix** from the issue title prefix using the table above.
 
 5. **Ensure main is up to date**:
    ```bash
-   git checkout main && git pull origin main
+   git checkout main
+   git pull origin main
    ```
 
-6. **Create and checkout branch**:
-   ```bash
-   git checkout -b <prefix>/<issue-number>-<short-description>
-   ```
-   If the branch already exists, ask the user: "Branch '<name>' already exists. Switch to it instead?"
-
+6. **Build branch name** from: `<prefix>/<issue-number>-<kebab-case-title>`
+   Keep the slug concise (≤ 40 chars total).
    Examples:
    - `test/24-add-auth-api-tests`
    - `fix/25-flaky-journal-e2e`
    - `infra/26-parallel-ci-jobs`
+   - `refactor/27-extract-fixtures`
 
-7. **Move issue to In Progress** on the project board:
+   Check if branch already exists:
    ```bash
-   # Get issue node ID
-   ISSUE_NODE_ID=$(gh issue view $ARGUMENTS --repo dariero/lumairej-tests --json id --jq '.id')
-
-   # Add to project and get item ID
-   ITEM_ID=$(gh api graphql -f query='
-     mutation($project: ID!, $content: ID!) {
-       addProjectV2ItemById(input: {projectId: $project, contentId: $content}) {
-         item { id }
-       }
-     }' -f project="PVT_kwHODR8J4s4A9wbx" -f content="$ISSUE_NODE_ID" --jq '.data.addProjectV2ItemById.item.id')
-
-   # Move to In Progress (Status field only - preserves Priority/Size)
-   gh api graphql -f query='
-     mutation($project: ID!, $item: ID!, $field: ID!, $value: String!) {
-       updateProjectV2ItemFieldValue(input: {projectId: $project, itemId: $item, fieldId: $field, value: {singleSelectOptionId: $value}}) {
-         projectV2Item { id }
-       }
-     }' -f project="PVT_kwHODR8J4s4A9wbx" -f item="$ITEM_ID" -f field="PVTSSF_lAHODR8J4s4A9wbxzgxXTgM" -f value="47fc9ee4"
+   git branch --list "<branch-name>"
    ```
-   If any GraphQL mutation fails, report the error to the user and stop.
+   If it exists, ask: "Branch '<branch-name>' already exists. Switch to it instead?"
 
-8. **Verify Priority and Size are set** (if missing, ask user and set them):
+7. **Create and checkout the branch**:
    ```bash
-   gh api graphql -f query='
-     query($item: ID!) {
-       node(id: $item) {
-         ... on ProjectV2Item {
-           fieldValueByName(name: "Priority") { ... on ProjectV2ItemFieldSingleSelectValue { name } }
-           fieldValueByName(name: "Size") { ... on ProjectV2ItemFieldSingleSelectValue { name } }
-         }
-       }
-     }' -f item="$ITEM_ID"
+   git checkout -b "<branch-name>"
    ```
 
-   If Priority or Size are null, ask the user to select values and set them:
-   ```bash
-   # Set Priority: Critical: 79628723 | High: 0a877460 | Medium: da944a9c | Low: 56c1c445
-   gh api graphql -f query='
-     mutation($project: ID!, $item: ID!, $field: ID!, $value: String!) {
-       updateProjectV2ItemFieldValue(input: {projectId: $project, itemId: $item, fieldId: $field, value: {singleSelectOptionId: $value}}) {
-         projectV2Item { id }
-       }
-     }' -f project="PVT_kwHODR8J4s4A9wbx" -f item="$ITEM_ID" -f field="PVTSSF_lAHODR8J4s4A9wbxzgxXT_I" -f value="<priority-option-id>"
+8. **Move issue to In Progress on the project board**:
+   Load `.claude/commands/_project-board.md` and execute in order:
+   - `get-item-id` with issue number = `$ARGUMENTS`
+   - `update-board-status` with `STATUS_OPTION_ID` = `47fc9ee4` (In Progress)
 
-   # Set Size: XS: 6c6483d2 | S: f784b110 | M: 7515a9f1 | L: 817d0097 | XL: db339eb2
-   gh api graphql -f query='
-     mutation($project: ID!, $item: ID!, $field: ID!, $value: String!) {
-       updateProjectV2ItemFieldValue(input: {projectId: $project, itemId: $item, fieldId: $field, value: {singleSelectOptionId: $value}}) {
-         projectV2Item { id }
-       }
-     }' -f project="PVT_kwHODR8J4s4A9wbx" -f item="$ITEM_ID" -f field="PVTSSF_lAHODR8J4s4A9wbxzgxXT_M" -f value="<size-option-id>"
-   ```
+   If any mutation fails:
+   > "ERROR: Board update failed. REMEDIATION: Manually move issue #$ARGUMENTS to 'In Progress'
+   > at https://github.com/users/dariero/projects/1. The branch '<branch-name>' was created
+   > successfully — you can continue working."
 
-9. **Confirm** the branch is ready and summarize:
-   - Branch name created
-   - Issue moved to In Progress
-   - Priority and Size confirmed/set
-   - Issue summary and acceptance criteria
+9. **Verify Priority and Size are set**:
+   Execute `verify-board-fields` from `_project-board.md`.
+   If Priority or Size are null, ask the user to select values and set them using
+   `update-board-field` with the appropriate field/option IDs from `_project-board.md`.
+
+10. **Confirm readiness** and summarize:
+    - Branch name created and checked out
+    - Issue moved to In Progress
+    - Priority and Size confirmed or set
+    - Issue title, description, and acceptance criteria displayed
+
+<eval_output>
+At completion, output a one-line structured summary:
+`START: issue=#<N> branch=<branch-name> board=<In Progress|FAILED> priority=<P> size=<S>`
+</eval_output>
 
 ## Issue Number
 $ARGUMENTS
