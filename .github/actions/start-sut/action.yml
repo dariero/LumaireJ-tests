@@ -3,9 +3,9 @@ description: Checkout, setup, and start the System Under Test (LumaireJ)
 
 inputs:
   repository:
-    description: 'Repository to checkout (must be darie/LumaireJ)'
+    description: 'Repository to checkout (must be dariero/LumaireJ)'
     required: false
-    default: 'darie/LumaireJ'
+    default: 'dariero/LumaireJ'
   python-version:
     description: 'Python version to use'
     required: false
@@ -17,8 +17,8 @@ runs:
     - name: Validate repository input
       shell: bash
       run: |
-        if [[ "${{ inputs.repository }}" != "darie/LumaireJ" ]]; then
-          echo "::error::Invalid repository: ${{ inputs.repository }}. Only darie/LumaireJ is allowed."
+        if [[ "${{ inputs.repository }}" != "dariero/LumaireJ" ]]; then
+          echo "::error::Invalid repository: ${{ inputs.repository }}. Only dariero/LumaireJ is allowed."
           exit 1
         fi
 
@@ -29,7 +29,7 @@ runs:
         path: app
 
     - name: Restore SUT PDM cache
-      uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.2.0
+      uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
       with:
         key: pdm-app-${{ runner.os }}-${{ hashFiles('app/pdm.lock') }}
         restore-keys: pdm-app-
@@ -38,7 +38,7 @@ runs:
           app/.venv
 
     - name: Setup PDM for SUT
-      uses: pdm-project/setup-pdm@568ddd69406b30de1a4ec5361b94a2d940eb2e0f # v4.2
+      uses: pdm-project/setup-pdm@94a823180e06fcde4ad29308721954a521c96ed0 # v4.4
       with:
         python-version: ${{ inputs.python-version }}
 
