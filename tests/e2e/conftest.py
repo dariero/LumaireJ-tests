@@ -7,6 +7,8 @@ from pathlib import Path
 import pytest
 from playwright.sync_api import Browser, Page, Playwright, sync_playwright
 
+from tests.e2e.pages.journal_page import JournalPage
+
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):
@@ -82,3 +84,11 @@ def page(browser: Browser, request: pytest.FixtureRequest) -> Generator[Page]:
     finally:
         # Always close context even if artifact capture fails
         context.close()
+
+
+@pytest.fixture
+def journal_page(page: Page, ui_base_url: str) -> JournalPage:
+    """Provide an opened JournalPage for each test."""
+    jp = JournalPage(page, ui_base_url)
+    jp.open()
+    return jp
