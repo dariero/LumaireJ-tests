@@ -87,8 +87,8 @@ def page(browser: Browser, request: pytest.FixtureRequest) -> Generator[Page]:
 
 
 @pytest.fixture
-def journal_page(page: Page, ui_base_url: str) -> JournalPage:
+def journal_page(page: Page, base_url: str) -> JournalPage:
     """Provide an opened JournalPage for each test."""
-    jp = JournalPage(page, ui_base_url)
+    jp = JournalPage(page, base_url)
     jp.open()
     return jp

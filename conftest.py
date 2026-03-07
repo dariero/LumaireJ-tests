@@ -6,7 +6,6 @@ from tests.shared.fixtures import (  # noqa: F401
     api_client,
     base_url,
     is_ci,
-    ui_base_url,
 )
 from tests.shared.test_data import (  # noqa: F401
     journal_entry_data,

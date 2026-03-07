@@ -3,6 +3,7 @@
 import pytest
 
 from tests.e2e.pages.journal_page import JournalPage
+from tests.shared.constants import NEGATIVE_ASSERTION_TIMEOUT_MS
 from tests.shared.test_data import JournalEntryData
 
 
@@ -52,6 +53,6 @@ def test_journal_form_validation_prevents_empty_submission(journal_page: Journal
     """Test that form validation prevents submission with empty content."""
     journal_page.submit()
 
-    assert not journal_page.is_response_visible(timeout=500), (
+    assert not journal_page.is_response_visible(timeout=NEGATIVE_ASSERTION_TIMEOUT_MS), (
         "Response element should not be visible for empty form"
     )
