@@ -52,6 +52,54 @@ class APIClient:
 
         return response.status_code, body
 
+    def get_journal_entry(self, entry_id: str) -> tuple[int, dict[str, Any]]:
+        """Fetch a single journal entry by ID.
+
+        Returns:
+            tuple: (status_code, response_body)
+
+        Raises:
+            requests.exceptions.HTTPError: On non-2xx response.
+            requests.exceptions.RequestException: On connection/timeout errors.
+            ValueError: On non-JSON response body.
+        """
+        response = self._request("GET", f"/journal/{entry_id}")
+        response.raise_for_status()
+
+        try:
+            body = response.json()
+        except json.JSONDecodeError as exc:
+            raise ValueError(
+                f"Non-JSON response from GET /journal/{entry_id} (status {response.status_code}): "
+                f"{response.text[:200]}"
+            ) from exc
+
+        return response.status_code, body
+
+    def list_journal_entries(self) -> tuple[int, list[dict[str, Any]]]:
+        """Fetch all journal entries.
+
+        Returns:
+            tuple: (status_code, list of response bodies)
+
+        Raises:
+            requests.exceptions.HTTPError: On non-2xx response.
+            requests.exceptions.RequestException: On connection/timeout errors.
+            ValueError: On non-JSON response body.
+        """
+        response = self._request("GET", "/journal")
+        response.raise_for_status()
+
+        try:
+            body = response.json()
+        except json.JSONDecodeError as exc:
+            raise ValueError(
+                f"Non-JSON response from GET /journal (status {response.status_code}): "
+                f"{response.text[:200]}"
+            ) from exc
+
+        return response.status_code, body
+
     def delete_journal_entry(self, entry_id: str) -> int:
         """Delete a journal entry by ID.
 
