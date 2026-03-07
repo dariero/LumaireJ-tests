@@ -2,20 +2,21 @@
 
 Address requested changes after a PR review, then push.
 
-<meta version="1.1.0" updated="2026-03-06" />
+<meta version="2.0.0" updated="2026-03-07" />
 
 <variables>
   <pr_number>$ARGUMENTS</pr_number>
 </variables>
 
 <constraints>
-- MUST resolve a PR number before proceeding. If $ARGUMENTS is empty, detect from the current branch. If no PR is found, ask the user for the PR number.
+- If $ARGUMENTS is empty, detect PR from the current branch. If no PR is found, ask: "Which PR number should I fix?"
 - MUST address every review comment — do NOT skip any.
 - MUST run lint and tests before pushing. Do NOT push if either fails.
-- MUST ask the user for confirmation before running `git push`.
 - MUST NOT use `git add .` or `git add -A`. Stage specific files only.
 - MUST NOT amend previous commits unless the user explicitly requests it.
 - Commit body MUST list the actual changes made, not placeholder text.
+- Auto-fix lint errors without asking. Re-run to verify clean.
+- Infer issue number from the current branch name.
 </constraints>
 
 ## Instructions
@@ -45,20 +46,28 @@ Address requested changes after a PR review, then push.
    - If a requested change is ambiguous or requires an architectural decision, ask
      the user before proceeding. Do NOT guess intent.
 
-5. **Run quality gate** (single invocation, no Allure):
+5. **Run quality gate**:
    ```bash
    pdm run lint
    ```
-   If lint errors are found, ask: "Lint errors found. Run `pdm run fix` to auto-fix?"
-   Only auto-fix if the user confirms. Re-run lint after to verify clean.
+   If lint errors are found, auto-fix and re-verify:
+   ```bash
+   pdm run fix
+   pdm run lint
+   ```
+   If lint still fails after auto-fix, report errors and stop.
 
    ```bash
    pdm run pytest --override-ini="addopts=" -v --tb=short
    ```
    If tests fail, report each failure with file:line and do NOT proceed to push.
 
-6. **Extract issue number** from branch name and determine commit type from prefix
-   (see commit type table in `commit.md`).
+6. **Extract issue number** from branch name:
+   ```bash
+   git branch --show-current | grep -oE '[0-9]+' | head -1
+   ```
+   Determine commit type from branch prefix (same table as `/ship`):
+   `test/` → `test:` | `fix/` → `fix(tests):` | `infra/` → `ci:` | `refactor/` → `refactor(tests):`
 
 7. **Stage and commit** — list only files actually changed:
    ```bash
@@ -76,9 +85,7 @@ Address requested changes after a PR review, then push.
    ```
    The bullet list MUST reflect the real changes — not placeholder text.
 
-8. **Push** (requires user confirmation):
-   Ask: "Ready to push changes to '<branch-name>'?"
-   Only if confirmed:
+8. **Push**:
    ```bash
    git push
    ```

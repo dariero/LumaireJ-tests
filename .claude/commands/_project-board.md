@@ -1,7 +1,7 @@
 # Project Board Configuration
 
 Canonical reference for GitHub Projects V2 IDs and reusable board procedures.
-Referenced by: `start-work`, `complete-issue`, `new-issue`, `pr`, `review-pr`.
+Referenced by: `start`, `issue`, `ship`, `fix`, `done`.
 
 <meta version="1.1.0" updated="2026-03-06" />
 
@@ -147,10 +147,9 @@ gh api graphql -f query='
 To update IDs after a project board reconfiguration: edit the `<project_board>` block
 above only. No other command files contain hardcoded board IDs.
 
-| Command          | Status Used  | Fields Used          |
-|------------------|--------------|----------------------|
-| `start-work.md`  | `in_progress`| Priority, Size       |
-| `pr.md`          | `ai_review`  | —                    |
-| `review-pr.md`   | `approved`   | —                    |
-| `complete-issue.md` | `done`    | —                    |
-| `new-issue.md`   | —            | Priority, Size       |
+| Command       | Status Used  | Fields Used          |
+|---------------|--------------|----------------------|
+| `start.md`    | `in_progress`| Priority, Size       |
+| `ship.md`     | `ai_review`  | —                    |
+| `done.md`     | `done`       | —                    |
+| `issue.md`    | —            | Priority, Size       |
