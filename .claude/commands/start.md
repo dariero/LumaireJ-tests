@@ -2,7 +2,7 @@
 
 Create a branch and begin work on a GitHub issue.
 
-<meta version="1.1.0" updated="2026-03-06" />
+<meta version="2.0.0" updated="2026-03-07" />
 
 <variables>
   <issue_number>$ARGUMENTS</issue_number>
@@ -10,7 +10,7 @@ Create a branch and begin work on a GitHub issue.
 
 <constraints>
 - MUST validate that $ARGUMENTS is a non-empty integer. If empty or non-numeric, ask: "Which issue number should I work on?"
-- MUST check for uncommitted changes before switching branches. If the working tree is dirty, ask: "You have uncommitted changes. Stash, commit, or abort?"
+- MUST check for uncommitted changes before switching branches. If the working tree is dirty, ask: "You have uncommitted changes. Stash them, commit them, or abort?"
 - MUST NOT create a branch if one with the same name already exists. If it exists, ask: "Branch '<name>' already exists. Switch to it instead?"
 - MUST match the issue title prefix to the branch prefix table below. If unrecognized, ask the user — do NOT guess.
 - MUST NOT proceed if any GraphQL mutation fails — report with manual remediation steps and stop.

@@ -2,7 +2,7 @@
 
 Create a new GitHub issue for test automation tasks.
 
-<meta version="1.1.0" updated="2026-03-06" />
+<meta version="2.0.0" updated="2026-03-07" />
 
 <variables>
   <issue_description>$ARGUMENTS</issue_description>
@@ -13,7 +13,7 @@ Create a new GitHub issue for test automation tasks.
 - MUST select the issue type from the table below. If the request does not clearly match a type, ask the user to clarify.
 - MUST NOT create an issue without at least one label.
 - MUST NOT proceed if any GraphQL mutation fails — report the error with manual remediation steps and stop.
-- MUST ask the user to confirm Priority and Size before setting them.
+- Default Priority=Medium, Size=M unless overrides are provided in $ARGUMENTS (e.g. `priority:high size:s`).
 - Load `.claude/commands/_project-board.md` before executing any board operation.
 </constraints>
 
@@ -35,7 +35,13 @@ Create a new GitHub issue for test automation tasks.
 
    If the request does not clearly match, ask: "Which issue type fits this request?" and present the table.
 
-3. **Select the template** for the matched type:
+3. **Parse priority/size overrides** from `$ARGUMENTS`:
+   - Look for `priority:<value>` (critical/high/medium/low) — case-insensitive
+   - Look for `size:<value>` (xs/s/m/l/xl) — case-insensitive
+   - If not provided, use defaults: **Priority=Medium, Size=M**
+   - Strip these tokens from the description before using it as the issue title.
+
+4. **Select the template** for the matched type:
 
    **`[TEST]` — Test Scenario:**
    ```markdown
@@ -117,7 +123,7 @@ Create a new GitHub issue for test automation tasks.
    [Any risks or edge cases to consider]
    ```
 
-4. **Determine labels** from type and content:
+5. **Determine labels** from type and content:
 
    | Issue Type       | Labels              |
    |------------------|---------------------|
@@ -128,39 +134,20 @@ Create a new GitHub issue for test automation tasks.
    | `[INFRA]`        | `infra`             |
    | `[REFACTOR]`     | `infra` (tooling) or test-type labels |
 
-5. **Create the issue**:
+6. **Create the issue**:
    ```bash
    gh issue create --repo dariero/lumairej-tests \
      --title "[TYPE] <description from $ARGUMENTS>" \
-     --body "<filled template from step 3>" \
-     --label "<labels from step 4>" \
+     --body "<filled template from step 4>" \
+     --label "<labels from step 5>" \
      --assignee dariero
    ```
    Capture the returned issue URL and number.
 
-6. **Confirm Priority and Size** with the user:
-
-   | Priority | When to Use |
-   |----------|-------------|
-   | Critical | Blocking — CI broken or tests failing |
-   | High     | Important feature or significant flakiness |
-   | Medium   | Normal priority work (default) |
-   | Low      | Nice-to-have, minor improvement |
-
-   | Size | Effort |
-   |------|--------|
-   | XS   | < 1 hour |
-   | S    | 1–2 hours |
-   | M    | Half day (default) |
-   | L    | Full day |
-   | XL   | Multi-day |
-
-   Ask: "Priority and Size for issue #<N>? (Priority: Critical/High/Medium/Low, Size: XS/S/M/L/XL)"
-
 7. **Set board fields**: Load `.claude/commands/_project-board.md` and execute:
    - `get-item-id` with the new issue number
-   - `update-board-field` with `FIELD_ID` = `PVTSSF_lAHODR8J4s4A9wbxzgxXT_I` and the chosen Priority option ID
-   - `update-board-field` with `FIELD_ID` = `PVTSSF_lAHODR8J4s4A9wbxzgxXT_M` and the chosen Size option ID
+   - `update-board-field` with `FIELD_ID` = `PVTSSF_lAHODR8J4s4A9wbxzgxXT_I` and the Priority option ID (default: `da944a9c` = Medium)
+   - `update-board-field` with `FIELD_ID` = `PVTSSF_lAHODR8J4s4A9wbxzgxXT_M` and the Size option ID (default: `7515a9f1` = M)
    - `verify-board-fields` to confirm both are set
 
    If any mutation fails, report:
@@ -171,11 +158,11 @@ Create a new GitHub issue for test automation tasks.
    - Issue number and URL
    - Type, labels applied
    - Priority and Size set
-   - Next step: `/start-work <issue-number>`
+   - Next step: `/start <issue-number>`
 
 <eval_output>
 At completion, output a one-line structured summary:
-`NEW-ISSUE: #<N> type=<TYPE> labels=<labels> priority=<P> size=<S> url=<url>`
+`ISSUE: #<N> type=<TYPE> labels=<labels> priority=<P> size=<S> url=<url>`
 </eval_output>
 
 ## User Request
