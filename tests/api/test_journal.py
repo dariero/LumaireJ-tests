@@ -187,6 +187,9 @@ def test_list_journal_entries_includes_created_entry(
     ids = [e["id"] for e in entries]
     assert created_id in ids, f"Created entry {created_id} not found in list: {ids}"
 
+    matched = next(e for e in entries if e["id"] == created_id)
+    JournalEntryResponse.model_validate(matched)
+
 
 @pytest.mark.api
 @pytest.mark.journal
