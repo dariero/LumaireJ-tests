@@ -29,18 +29,12 @@ def api_base_url(base_url: str) -> str:
 
 
 @pytest.fixture(scope="session")
-def ui_base_url(base_url: str) -> str:
-    """Return the UI base URL."""
-    return base_url
-
-
-@pytest.fixture(scope="session")
 def is_ci() -> bool:
     """Check if running in a CI environment."""
     return os.getenv("CI", "false").lower() in ("1", "true")
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="session")
 def api_client(api_base_url: str) -> APIClient:
     """Provide a configured API client instance."""
     return APIClient(api_base_url)

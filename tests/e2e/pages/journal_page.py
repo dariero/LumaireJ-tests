@@ -2,7 +2,7 @@
 
 from playwright.sync_api import Page, expect
 
-from tests.shared.constants import DEFAULT_TIMEOUT_MS
+from tests.shared.constants import DEFAULT_TIMEOUT_MS, NEGATIVE_ASSERTION_TIMEOUT_MS
 
 
 class JournalPage:
@@ -56,11 +56,11 @@ class JournalPage:
         expect(response_locator).to_be_visible(timeout=DEFAULT_TIMEOUT_MS)
         return response_locator.inner_text()
 
-    def is_response_visible(self, timeout: int = 1000) -> bool:
+    def is_response_visible(self, timeout: int = NEGATIVE_ASSERTION_TIMEOUT_MS) -> bool:
         """Check if the response element is visible within the given timeout.
 
         Args:
-            timeout: Maximum time to wait in milliseconds (default: 1000ms).
+            timeout: Maximum time to wait in milliseconds.
 
         Returns:
             True if visible within timeout, False otherwise.
